@@ -1,9 +1,10 @@
 import random
-import torch
-import torch.distributed as dist
 from functools import partial
 
 import deep_ep
+import torch
+import torch.distributed as dist
+
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
 
 
@@ -41,20 +42,25 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                                                 async_finish=not return_recv_hook, return_recv_hook=return_recv_hook)
                 hook() if return_recv_hook else event.current_stream_wait()
             packed_recv_x = (packed_recv_x[0], packed_recv_x[1].contiguous()) if dispatch_use_fp8 else packed_recv_x
-            simulated_gemm_x = per_token_cast_back(packed_recv_x[0].view(-1, hidden), packed_recv_x[1].view(-1, hidden // 128)).view(packed_recv_x[0].shape) \
+            simulated_gemm_x = per_token_cast_back(packed_recv_x[0].view(-1, hidden),
+                                                   packed_recv_x[1].view(-1, hidden // 128)).view(
+                packed_recv_x[0].shape) \
                 if dispatch_use_fp8 else packed_recv_x.clone()
             all_topk_idx = torch.empty((num_ranks, num_tokens, num_topk), dtype=topk_idx.dtype, device='cuda')
             dist.all_gather_into_tensor(all_topk_idx, topk_idx, group=group)
             for i in range(num_local_experts if do_check else 0):
                 expert_id = rank * num_local_experts + i
-                recv_x = per_token_cast_back(packed_recv_x[0][i], packed_recv_x[1][i]) if dispatch_use_fp8 else packed_recv_x[i]
+                recv_x = per_token_cast_back(packed_recv_x[0][i], packed_recv_x[1][i]) if dispatch_use_fp8 else \
+                packed_recv_x[i]
                 recv_count, recv_src_info, recv_layout_range = packed_recv_count[i], handle[0][i], handle[1][i]
 
                 # Check expert indices
                 int_mask = (2 ** 32) - 1
                 num_valid_tokens = recv_count.item()
-                assert num_valid_tokens == (recv_layout_range & int_mask).sum().item(), f'{num_valid_tokens} != {recv_layout_range & int_mask}.sum().item()'
-                assert num_valid_tokens == (all_topk_idx == expert_id).sum().item(), f'{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}'
+                assert num_valid_tokens == (
+                            recv_layout_range & int_mask).sum().item(), f'{num_valid_tokens} != {recv_layout_range & int_mask}.sum().item()'
+                assert num_valid_tokens == (
+                            all_topk_idx == expert_id).sum().item(), f'{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}'
 
                 # Check received data
                 recv_x = recv_x[:num_valid_tokens]
@@ -78,7 +84,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                     buffer.get_next_low_latency_combine_buffer(handle)[:, :, :] = simulated_gemm_x
                 out = torch.empty((num_tokens, hidden), dtype=torch.bfloat16, device='cuda')
                 combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                                                     async_finish=not return_recv_hook, zero_copy=zero_copy,
+                                                                     async_finish=not return_recv_hook,
+                                                                     zero_copy=zero_copy,
                                                                      return_recv_hook=return_recv_hook, out=out)
                 hook() if return_recv_hook else event.current_stream_wait()
                 if do_check:
@@ -126,8 +133,9 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
     # Dispatch + combine testing
     avg_t, min_t, max_t = bench(partial(test_func, zero_copy=False, return_recv_hook=False))
-    print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
-          f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
+    print(
+        f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
+        f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
     # Separate profiling
     for return_recv_hook in (False, True):
@@ -136,8 +144,10 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                                              kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
                                              suppress_kineto_output=True)
         if not return_recv_hook:
-            print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
-                  f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
+            print(
+                f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
+                f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us',
+                flush=True)
         else:
             print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t * 2 * 1e6:.2f} us | '
                   f'Combine send/recv time: {combine_t * 2 * 1e6:.2f} us', flush=True)
@@ -163,10 +173,12 @@ def test_loop(local_rank: int, num_local_ranks: int):
             print(f'Testing with seed {seed} ...', flush=True)
         ref_hash = test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer, seed=seed)
         for i in range(20):
-            assert test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer, seed=seed) == ref_hash, f'Error: seed={seed}'
+            assert test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer,
+                             seed=seed) == ref_hash, f'Error: seed={seed}'
 
 
 if __name__ == '__main__':
     # TODO: you may modify NUMA binding for less CPU overhead
-    num_processes = 8
+    # num_processes = 8
+    num_processes = 4  # NOTE MODIFIED
     torch.multiprocessing.spawn(test_loop, args=(num_processes,), nprocs=num_processes)
