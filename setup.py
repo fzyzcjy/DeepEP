@@ -1,10 +1,11 @@
 import os
 import subprocess
+
 import setuptools
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
-
 if __name__ == '__main__':
+    enable_nvshmem = bool(int(os.getenv("DEEPEP_ENABLE_NVSHMEM", "1")))
     nvshmem_dir = os.getenv('NVSHMEM_DIR', None)
     assert nvshmem_dir is not None and os.path.exists(nvshmem_dir), 'Failed to find NVSHMEM'
     print(f'NVSHMEM directory: {nvshmem_dir}')
