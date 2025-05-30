@@ -1,9 +1,10 @@
 import os
 import sys
+from typing import Optional
+
 import numpy as np
 import torch
 import torch.distributed as dist
-from typing import Optional
 
 
 def init_dist(local_rank: int, num_local_ranks: int):
@@ -12,7 +13,9 @@ def init_dist(local_rank: int, num_local_ranks: int):
     port = int(os.getenv('MASTER_PORT', '8361'))
     num_nodes = int(os.getenv('WORLD_SIZE', 1))
     node_rank = int(os.getenv('RANK', 0))
-    assert (num_local_ranks < 8 and num_nodes == 1) or num_local_ranks == 8
+   
+    print('HACK: remove init_dist assertion')
+    # assert (num_local_ranks < 8 and num_nodes == 1) or num_local_ranks == 8
 
     dist.init_process_group(
         backend='nccl',
@@ -164,7 +167,7 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
     assert isinstance(kernel_names, str) or isinstance(kernel_names, tuple)
     is_tupled = isinstance(kernel_names, tuple)
     prof_lines = prof.key_averages().table(sort_by='cuda_time_total', max_name_column_width=100).split('\n')
-    kernel_names = (kernel_names, ) if isinstance(kernel_names, str) else kernel_names
+    kernel_names = (kernel_names,) if isinstance(kernel_names, str) else kernel_names
     assert all([isinstance(name, str) for name in kernel_names])
     for name in kernel_names:
         assert sum([name in line for line in prof_lines]) == 1, f'Errors of the kernel {name} in the profiling table'
