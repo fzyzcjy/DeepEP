@@ -33,8 +33,11 @@ if __name__ == '__main__':
         nvcc_flags.append('-DDISABLE_AGGRESSIVE_PTX_INSTRS')
 
     # Disable DLTO (default by PyTorch)
-    nvcc_dlink = ['-dlink', f'-L{nvshmem_dir}/lib', '-lnvshmem']
-    extra_link_args = ['-l:libnvshmem.a', '-l:nvshmem_bootstrap_uid.so', f'-Wl,-rpath,{nvshmem_dir}/lib']
+    nvcc_dlink = ['-dlink']
+    extra_link_args = []
+    if enable_nvshmem:
+        nvcc_dlink += [f'-L{nvshmem_dir}/lib', '-lnvshmem']
+        extra_link_args += ['-l:libnvshmem.a', '-l:nvshmem_bootstrap_uid.so', f'-Wl,-rpath,{nvshmem_dir}/lib']
     extra_compile_args = {
         'cxx': cxx_flags,
         'nvcc': nvcc_flags,
