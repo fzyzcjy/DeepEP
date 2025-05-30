@@ -23,6 +23,8 @@ if __name__ == '__main__':
                'csrc/kernels/runtime.cu', 'csrc/kernels/intranode.cu']
     library_dirs = []
     if enable_nvshmem:
+        cxx_flags += ['-DDEEPEP_ENABLE_NVSHMEM=1']
+        nvcc_flags += ['-DDEEPEP_ENABLE_NVSHMEM=1']
         include_dirs += [f'{nvshmem_dir}/include']
         sources += ['csrc/kernels/internode.cu', 'csrc/kernels/internode_ll.cu']
         library_dirs += [f'{nvshmem_dir}/lib']
