@@ -30,6 +30,7 @@ void barrier(int** task_fifo_ptrs, int head, int rank, int num_ranks, cudaStream
 
 } // namespace intranode
 
+#if DEEPEP_ENABLE_NVSHMEM
 namespace internode {
 
 nvshmem_team_t cpu_rdma_team = NVSHMEM_TEAM_INVALID;
@@ -85,5 +86,6 @@ void finalize() {
 }
 
 } // namespace internode
+#endif
 
 } // namespace deep_ep
