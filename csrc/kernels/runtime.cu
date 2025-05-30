@@ -5,7 +5,9 @@
 #include "exception.cuh"
 #include "launch.cuh"
 #include "utils.cuh"
+#if DEEPEP_ENABLE_NVSHMEM
 #include "ibgda_device.cuh"
+#endif
 
 namespace deep_ep {
 
