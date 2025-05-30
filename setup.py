@@ -6,9 +6,11 @@ from torch.utils.cpp_extension import BuildExtension, CUDAExtension
 
 if __name__ == '__main__':
     enable_nvshmem = bool(int(os.getenv("DEEPEP_ENABLE_NVSHMEM", "1")))
+
     nvshmem_dir = os.getenv('NVSHMEM_DIR', None)
-    assert nvshmem_dir is not None and os.path.exists(nvshmem_dir), 'Failed to find NVSHMEM'
-    print(f'NVSHMEM directory: {nvshmem_dir}')
+    if enable_nvshmem:
+        assert nvshmem_dir is not None and os.path.exists(nvshmem_dir), 'Failed to find NVSHMEM'
+        print(f'NVSHMEM directory: {nvshmem_dir}')
 
     # TODO: currently, we only support Hopper architecture, we may add Ampere support later
     if os.getenv('TORCH_CUDA_ARCH_LIST', None) is None:
@@ -16,11 +18,14 @@ if __name__ == '__main__':
     cxx_flags = ['-O3', '-Wno-deprecated-declarations', '-Wno-unused-variable',
                  '-Wno-sign-compare', '-Wno-reorder', '-Wno-attributes']
     nvcc_flags = ['-O3', '-Xcompiler', '-O3', '-rdc=true', '--ptxas-options=--register-usage-level=10']
-    include_dirs = ['csrc/', f'{nvshmem_dir}/include']
+    include_dirs = ['csrc/']
     sources = ['csrc/deep_ep.cpp',
-               'csrc/kernels/runtime.cu', 'csrc/kernels/intranode.cu',
-               'csrc/kernels/internode.cu', 'csrc/kernels/internode_ll.cu']
-    library_dirs = [f'{nvshmem_dir}/lib']
+               'csrc/kernels/runtime.cu', 'csrc/kernels/intranode.cu']
+    library_dirs = []
+    if enable_nvshmem:
+        include_dirs += [f'{nvshmem_dir}/include']
+        sources += ['csrc/kernels/internode.cu', 'csrc/kernels/internode_ll.cu']
+        library_dirs += [f'{nvshmem_dir}/lib']
 
     # Disable aggressive PTX instructions
     if int(os.getenv('DISABLE_AGGRESSIVE_PTX_INSTRS', '0')):
