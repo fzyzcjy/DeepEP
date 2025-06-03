@@ -51,7 +51,7 @@
         default: EP_HOST_ASSERT(false && "Unsupported type"); \
     } while (false)
 
-// NOTE 128, 512 is for debugging
+// NOTE 256 etc is for debugging
 // NOTE removed some to speed up
 //         case 2560: case_macro(2560); \
 //         case 4096: case_macro(4096); \
@@ -59,8 +59,8 @@
 //
 #define SWITCH_HIDDEN(case_macro) \
     switch (hidden) { \
-        case 128: case_macro(128); \
-        case 512: case_macro(512); \
+        case 256: case_macro(256); \
+        case 1024: case_macro(1024); \
         case 7168: case_macro(7168); \
         default: EP_HOST_ASSERT(false && "Unsupported hidden"); \
     } while (false)
