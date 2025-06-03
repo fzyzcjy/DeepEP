@@ -132,6 +132,11 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         num_dispatch_comm_bytes += num_fp8_bytes * num_selections
         num_combine_comm_bytes += num_bf16_bytes * num_selections
 
+    if int(os.environ.get("DEEPEP_ENABLE_PROFILE", "0")):
+        bench(partial(test_func, zero_copy=False, return_recv_hook=False))
+        print("Early halt since profiling")
+        return
+
     # Dispatch + combine testing
     avg_t, min_t, max_t = bench(partial(test_func, zero_copy=False, return_recv_hook=False))
     print(
