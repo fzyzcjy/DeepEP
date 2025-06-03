@@ -1,8 +1,8 @@
 import os
 import subprocess
+
 import setuptools
 from torch.utils.cpp_extension import BuildExtension, CUDAExtension
-
 
 if __name__ == '__main__':
     nvshmem_dir = os.getenv('NVSHMEM_DIR', None)
@@ -25,6 +25,9 @@ if __name__ == '__main__':
     if int(os.getenv('DISABLE_AGGRESSIVE_PTX_INSTRS', '0')):
         cxx_flags.append('-DDISABLE_AGGRESSIVE_PTX_INSTRS')
         nvcc_flags.append('-DDISABLE_AGGRESSIVE_PTX_INSTRS')
+
+    if int(os.getenv('DEEPEP_NVCC_LINEINFO', '0')):
+        nvcc_flags.append('-lineinfo')
 
     # Disable DLTO (default by PyTorch)
     nvcc_dlink = ['-dlink', f'-L{nvshmem_dir}/lib', '-lnvshmem']
