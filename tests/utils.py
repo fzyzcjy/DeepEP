@@ -151,7 +151,7 @@ class suppress_stdout_stderr:
 
 
 # NOTE modified from bench_kineto
-def profile_kineto(fn, num_tests: int = 30, barrier_comm_profiling: bool = False, enable_cuda_profiler: bool):
+def profile_kineto(fn, num_tests: int = 30, barrier_comm_profiling: bool = False, enable_cuda_profiler: bool = False):
     for i in range(2):
         # NOTES: use a large kernel and a barrier to eliminate the unbalanced CPU launch overhead
         if barrier_comm_profiling:
