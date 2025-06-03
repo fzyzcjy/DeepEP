@@ -6,7 +6,7 @@ import deep_ep
 import torch
 import torch.distributed as dist
 
-from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
+from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back, profile_kineto
 
 
 def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
@@ -136,10 +136,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         # bench(partial(test_func, zero_copy=False, return_recv_hook=False), enable_cuda_profiler=rank == 0)
 
         group.barrier()
-        bench_kineto(partial(test_func, zero_copy=True, return_recv_hook=True),
-                     kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
-                     suppress_kineto_output=True,
-                     enable_cuda_profiler=rank == 0)
+        profile_kineto(partial(test_func, zero_copy=True, return_recv_hook=True),
+                       barrier_comm_profiling=True, enable_cuda_profiler=rank == 0)
 
         print("Early halt since profiling")
         return
