@@ -167,9 +167,11 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
                     dist.all_reduce(torch.ones(1, dtype=torch.float, device='cuda'))
                 for test_index in range(num_tests):
                     if i == 1 and test_index == 10:
+                        print("call cudaProfilerStart")
                         torch.cuda.cudart().cudaProfilerStart()
                     fn()
                     if i == 1 and test_index == 10:
+                        print("call cudaProfilerStop")
                         torch.cuda.cudart().cudaProfilerStop()
                 prof.step()
 
