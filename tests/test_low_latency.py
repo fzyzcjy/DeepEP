@@ -1,3 +1,4 @@
+import os
 import random
 from functools import partial
 
@@ -51,16 +52,16 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             for i in range(num_local_experts if do_check else 0):
                 expert_id = rank * num_local_experts + i
                 recv_x = per_token_cast_back(packed_recv_x[0][i], packed_recv_x[1][i]) if dispatch_use_fp8 else \
-                packed_recv_x[i]
+                    packed_recv_x[i]
                 recv_count, recv_src_info, recv_layout_range = packed_recv_count[i], handle[0][i], handle[1][i]
 
                 # Check expert indices
                 int_mask = (2 ** 32) - 1
                 num_valid_tokens = recv_count.item()
                 assert num_valid_tokens == (
-                            recv_layout_range & int_mask).sum().item(), f'{num_valid_tokens} != {recv_layout_range & int_mask}.sum().item()'
+                        recv_layout_range & int_mask).sum().item(), f'{num_valid_tokens} != {recv_layout_range & int_mask}.sum().item()'
                 assert num_valid_tokens == (
-                            all_topk_idx == expert_id).sum().item(), f'{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}'
+                        all_topk_idx == expert_id).sum().item(), f'{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}'
 
                 # Check received data
                 recv_x = recv_x[:num_valid_tokens]
@@ -158,7 +159,12 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 # noinspection PyUnboundLocalVariable
 def test_loop(local_rank: int, num_local_ranks: int):
     rank, num_ranks, group = init_dist(local_rank, num_local_ranks)
-    num_tokens, hidden, num_topk, num_experts = 128, 7168, 8, 288
+    # num_tokens, hidden, num_topk, num_experts = 128, 7168, 8, 288
+    num_tokens = int(os.environ.get("DEEPEP_TEST_NUM_TOKENS", "128"))
+    hidden = int(os.environ.get("DEEPEP_TEST_HIDDEN", "7168"))
+    num_topk = int(os.environ.get("DEEPEP_TEST_NUM_TOPK", "8"))
+    num_experts = int(os.environ.get("DEEPEP_TEST_NUM_EXPERTS", "288"))
+    print(f"{num_tokens=} {hidden=} {num_topk=} {num_experts=}")
 
     num_rdma_bytes = deep_ep.Buffer.get_low_latency_rdma_size_hint(num_tokens, hidden, num_ranks, num_experts)
     if local_rank == 0:
