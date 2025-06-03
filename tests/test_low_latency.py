@@ -36,6 +36,10 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     hash_value, num_times = 0, 0
     for return_recv_hook in (False, True):
         for dispatch_use_fp8 in (False, True):
+            if dispatch_use_fp8 and (not int(os.environ.get("DEEPEP_ENABLE_USE_FP8", "1"))):
+                print("skip use_fp8")
+                continue
+
             num_times += 1
             for i in range((num_times % 2) + 1):
                 packed_recv_x, packed_recv_count, handle, event, hook = \
