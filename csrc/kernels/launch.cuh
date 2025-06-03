@@ -59,8 +59,8 @@
 //
 #define SWITCH_HIDDEN(case_macro) \
     switch (hidden) { \
-        case 256: case_macro(256); \
-        case 1024: case_macro(1024); \
+        case 2048: case_macro(2048); \
+        case 2560: case_macro(2560); \
         case 7168: case_macro(7168); \
         default: EP_HOST_ASSERT(false && "Unsupported hidden"); \
     } while (false)
