@@ -13,7 +13,7 @@ def init_dist(local_rank: int, num_local_ranks: int):
     port = int(os.getenv('MASTER_PORT', '8361'))
     num_nodes = int(os.getenv('WORLD_SIZE', 1))
     node_rank = int(os.getenv('RANK', 0))
-   
+
     print('HACK: remove init_dist assertion')
     # assert (num_local_ranks < 8 and num_nodes == 1) or num_local_ranks == 8
 
@@ -74,7 +74,7 @@ def create_grouped_scores(scores: torch.Tensor, group_idx: torch.Tensor, num_gro
     return (scores * mask).view(num_tokens, num_experts)
 
 
-def bench(fn, num_warmups: int = 20, num_tests: int = 30, post_fn=None):
+def bench(fn, num_warmups: int = 20, num_tests: int = 30, post_fn=None, enable_cuda_profiler=False):
     # Flush L2 cache with 256 MB data
     torch.cuda.synchronize()
     cache = torch.empty(int(256e6 // 4), dtype=torch.int, device='cuda')
@@ -90,10 +90,14 @@ def bench(fn, num_warmups: int = 20, num_tests: int = 30, post_fn=None):
     start_events = [torch.cuda.Event(enable_timing=True) for _ in range(num_tests)]
     end_events = [torch.cuda.Event(enable_timing=True) for _ in range(num_tests)]
     for i in range(num_tests):
+        if enable_cuda_profiler and i == 0:
+            torch.cuda.cudart().cudaProfilerStart()
         # Record
         start_events[i].record()
         fn()
         end_events[i].record()
+        if enable_cuda_profiler and i == 0:
+            torch.cuda.cudart().cudaProfilerStop()
         if post_fn is not None:
             post_fn()
     torch.cuda.synchronize()

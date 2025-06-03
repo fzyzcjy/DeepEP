@@ -133,7 +133,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         num_combine_comm_bytes += num_bf16_bytes * num_selections
 
     if int(os.environ.get("DEEPEP_ENABLE_PROFILE", "0")):
-        bench(partial(test_func, zero_copy=False, return_recv_hook=False))
+        bench(partial(test_func, zero_copy=False, return_recv_hook=False), enable_cuda_profiler=rank == 0)
         print("Early halt since profiling")
         return
 
