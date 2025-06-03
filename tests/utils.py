@@ -90,6 +90,7 @@ def bench(fn, num_warmups: int = 20, num_tests: int = 30, post_fn=None, enable_c
     start_events = [torch.cuda.Event(enable_timing=True) for _ in range(num_tests)]
     end_events = [torch.cuda.Event(enable_timing=True) for _ in range(num_tests)]
     for i in range(num_tests):
+        # TODO should not use 0?
         if enable_cuda_profiler and i == 0:
             torch.cuda.cudart().cudaProfilerStart()
         # Record
@@ -150,7 +151,8 @@ class suppress_stdout_stderr:
 
 
 def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: bool = False,
-                 trace_path: Optional[str] = None, barrier_comm_profiling: bool = False):
+                 trace_path: Optional[str] = None, barrier_comm_profiling: bool = False,
+                 enable_cuda_profiler: bool = False):
     # Profile
     suppress = suppress_stdout_stderr if suppress_kineto_output else empty_suppress
     with suppress():
@@ -163,8 +165,12 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
                     rhs = torch.randn((8192, 8192), dtype=torch.float, device='cuda')
                     lhs @ rhs
                     dist.all_reduce(torch.ones(1, dtype=torch.float, device='cuda'))
-                for _ in range(num_tests):
+                for test_index in range(num_tests):
+                    if i == 1 and test_index == 10:
+                        torch.cuda.cudart().cudaProfilerStart()
                     fn()
+                    if i == 1 and test_index == 10:
+                        torch.cuda.cudart().cudaProfilerStop()
                 prof.step()
 
     # Parse the profiling table
