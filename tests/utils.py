@@ -150,9 +150,27 @@ class suppress_stdout_stderr:
         self.errnull_file.close()
 
 
+# NOTE modified from bench_kineto
+def profile_kineto(fn, num_tests: int = 30, barrier_comm_profiling: bool = False, enable_cuda_profiler: bool):
+    for i in range(2):
+        # NOTES: use a large kernel and a barrier to eliminate the unbalanced CPU launch overhead
+        if barrier_comm_profiling:
+            lhs = torch.randn((8192, 8192), dtype=torch.float, device='cuda')
+            rhs = torch.randn((8192, 8192), dtype=torch.float, device='cuda')
+            lhs @ rhs
+            dist.all_reduce(torch.ones(1, dtype=torch.float, device='cuda'))
+        for test_index in range(num_tests):
+            if enable_cuda_profiler and i == 1 and test_index == 10:
+                print("call cudaProfilerStart")
+                torch.cuda.cudart().cudaProfilerStart()
+            fn()
+            if enable_cuda_profiler and i == 1 and test_index == 10:
+                print("call cudaProfilerStop")
+                torch.cuda.cudart().cudaProfilerStop()
+
+
 def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: bool = False,
-                 trace_path: Optional[str] = None, barrier_comm_profiling: bool = False,
-                 enable_cuda_profiler: bool = False):
+                 trace_path: Optional[str] = None, barrier_comm_profiling: bool = False):
     # Profile
     suppress = suppress_stdout_stderr if suppress_kineto_output else empty_suppress
     with suppress():
@@ -166,13 +184,7 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
                     lhs @ rhs
                     dist.all_reduce(torch.ones(1, dtype=torch.float, device='cuda'))
                 for test_index in range(num_tests):
-                    if i == 1 and test_index == 10:
-                        print("call cudaProfilerStart")
-                        torch.cuda.cudart().cudaProfilerStart()
                     fn()
-                    if i == 1 and test_index == 10:
-                        print("call cudaProfilerStop")
-                        torch.cuda.cudart().cudaProfilerStop()
                 prof.step()
 
     # Parse the profiling table
