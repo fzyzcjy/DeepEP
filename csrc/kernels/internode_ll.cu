@@ -511,9 +511,7 @@ void combine(void* combined_x,
              void* workspace, cudaStream_t stream,
              int phases, bool zero_copy) {
     constexpr int kNumWarpsPerGroup = 10;
-    // NOTE MODIFIED
-//     constexpr int kNumWarpGroups = 3;
-    constexpr int kNumWarpGroups = 2;
+    constexpr int kNumWarpGroups = 3;
     constexpr int kNumMaxTopk = 9;
 
     const auto num_warps = kNumWarpGroups * kNumWarpsPerGroup;
