@@ -119,8 +119,6 @@ dispatch(void* packed_recv_x, float* packed_recv_x_scales,
                     // Reduce amax and scale
                     EP_STATIC_ASSERT(kNumElemsPerRead * 32 / kNumPerChannels == 2, "Invalid vectorization");
 
-                    // NOTE MODIFIED
-//                     amax = half_warp_reduce_max(amax), scale = kFP8Amax / amax, scale_inv = amax * kFP8AmaxInv;
                     amax = half_warp_reduce_max(amax);
                     scale_inv = amax * kFP8AmaxInv;
                     scale_inv = exp2f(ceilf(log2f(fmaxf(fabsf(scale_inv), 1e-10f))));
