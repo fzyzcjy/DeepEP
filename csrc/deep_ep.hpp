@@ -98,7 +98,7 @@ private:
     volatile int* moe_recv_rdma_counter = nullptr;
     int* moe_recv_rdma_counter_mapped = nullptr;
 
-    SharedMemoryAllocator shared_memory_allocator;
+    shared_memory::SharedMemoryAllocator shared_memory_allocator;
 
 public:
     Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode);
