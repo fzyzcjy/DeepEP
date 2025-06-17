@@ -11,126 +11,133 @@
 #include "kernels/configs.cuh"
 
 namespace shared_memory {
-    void cu_mem_set_access_all(void* ptr, size_t size) {
-        int device_count;
-        CUDA_CHECK(cudaGetDeviceCount(&device_count));
+void cu_mem_set_access_all(void* ptr, size_t size) {
+    int device_count;
+    CUDA_CHECK(cudaGetDeviceCount(&device_count));
 
-        CUmemAccessDesc access_desc[device_count];
-        for (int idx = 0; idx < device_count; ++idx) {
-            access_desc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-            access_desc[idx].location.id = idx;
-            access_desc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
-        }
-
-        CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, access_desc, device_count));
+    CUmemAccessDesc access_desc[device_count];
+    for (int idx = 0; idx < device_count; ++idx) {
+        access_desc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+        access_desc[idx].location.id = idx;
+        access_desc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
     }
 
-    void cu_mem_free(void* ptr) {
+    CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, access_desc, device_count));
+}
+
+void cu_mem_free(void* ptr) {
+    CUmemGenericAllocationHandle handle;
+    CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
+
+    size_t size = 0;
+    CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
+
+    CU_CHECK(cuMemUnmap((CUdeviceptr)ptr, size));
+    CU_CHECK(cuMemAddressFree((CUdeviceptr)ptr, size));
+    CU_CHECK(cuMemRelease(handle));
+}
+
+void get_size_align_to_granularity(size_t size_raw, CUmemAllocationProp& prop) {
+    size_t granularity = 0;
+    CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
+
+    size_t size = (size_raw + granularity - 1) & ~(granularity - 1);
+    if (size == 0) size = granularity;
+    return size;
+}
+
+bool support_fabric() {
+    int device_count;
+    CUDA_CHECK(cudaGetDeviceCount(&device_count));
+
+    for (int device = 0; device < device_count; ++device) {
+        int support = 0;
+        CU_CHECK(cuDeviceGetAttribute(&support, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_FABRIC_SUPPORTED, device));
+        if (!support) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+class SharedMemoryAllocator {
+public:
+    void malloc(void** ptr, size_t size_raw);
+private:
+    bool enable_fabric;
+};
+
+void malloc(void** ptr, size_t size_raw) {
+    if (enable_fabric) {
+        CUdevice device;
+        CURESULT_CHECK(cuCtxGetDevice(&device));
+
+        CUmemAllocationProp prop = {};
+        prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
+        prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+        prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
+        prop.location.id = device;
+
+        size_t size = get_size_align_to_granularity(size_raw, prop);
+
+        CUmemGenericAllocationHandle handle;
+        CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
+
+        CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
+        CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
+        cu_mem_set_access_all(*ptr, size);
+    } else {
+        CUDA_CHECK(cudaMalloc(ptr, size));
+    }
+}
+
+void free(void* ptr) {
+    if (enable_fabric) {
+        cu_mem_free(ptr);
+    } else {
+        CUDA_CHECK(cudaFree(ptr));
+    }
+}
+
+void get_mem_handle(MemHandle* mem_handle, void* ptr) {
+    size_t size = 0;
+    CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
+
+    mem_handle->size = size;
+
+    if (enable_fabric) {
         CUmemGenericAllocationHandle handle;
         CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
 
-        size_t size = 0;
-        CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
-
-        CU_CHECK(cuMemUnmap((CUdeviceptr)ptr, size));
-        CU_CHECK(cuMemAddressFree((CUdeviceptr)ptr, size));
-        CU_CHECK(cuMemRelease(handle));
+        CU_CHECK(cuMemExportToShareableHandle(&mem_handle->inner.cu_mem_fabric_handle, handle, CU_MEM_HANDLE_TYPE_FABRIC, 0));
+    } else {
+        CUDA_CHECK(cudaIpcGetMemHandle(&mem_handle->inner.cuda_ipc_mem_handle, ptr));
     }
+}
 
-    void get_size_align_to_granularity(size_t size_raw, CUmemAllocationProp& prop) {
-        size_t granularity = 0;
-        CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
+void open_mem_handle(void** ptr, MemHandle* mem_handle) {
+    if (enable_fabric) {
+        size_t size = mem_handle->size;
 
-        size_t size = (size_raw + granularity - 1) & ~(granularity - 1);
-        if (size == 0) size = granularity;
-        return size;
+        CUmemGenericAllocationHandle handle;
+        CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->inner.cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
+
+        CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
+        CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
+        cu_mem_set_access_all(*ptr, size);
+    } else {
+        CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->inner.cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
     }
+}
 
-    bool support_fabric() {
-        int device_count;
-        CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
-        for (int device = 0; device < device_count; ++device) {
-            int support = 0;
-            CU_CHECK(cuDeviceGetAttribute(&support, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_FABRIC_SUPPORTED, device));
-            if (!support) {
-                return false;
-            }
-        }
-
-        return true;
+void close_mem_handle(void* ptr) {
+    if (enable_fabric) {
+        cu_mem_free(ptr);
+    } else {
+        CUDA_CHECK(cudaIpcCloseMemHandle(ptr));
     }
-
-    void malloc(void** ptr, size_t size_raw) {
-        if (enable_fabric) {
-            CUdevice device;
-            CURESULT_CHECK(cuCtxGetDevice(&device));
-
-            CUmemAllocationProp prop = {};
-            prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
-            prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-            prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
-            prop.location.id = device;
-
-            size_t size = get_size_align_to_granularity(size_raw, prop);
-
-            CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
-
-            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
-            CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
-            cu_mem_set_access_all(*ptr, size);
-        } else {
-            CUDA_CHECK(cudaMalloc(ptr, size));
-        }
-    }
-
-    void free(void* ptr) {
-        if (enable_fabric) {
-            cu_mem_free(ptr);
-        } else {
-            CUDA_CHECK(cudaFree(ptr));
-        }
-    }
-
-    void get_mem_handle(MemHandle* mem_handle, void* ptr) {
-        size_t size = 0;
-        CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
-
-        mem_handle->size = size;
-
-        if (enable_fabric) {
-            CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
-
-            CU_CHECK(cuMemExportToShareableHandle(&mem_handle->inner.cu_mem_fabric_handle, handle, CU_MEM_HANDLE_TYPE_FABRIC, 0));
-        } else {
-            CUDA_CHECK(cudaIpcGetMemHandle(&mem_handle->inner.cuda_ipc_mem_handle, ptr));
-        }
-    }
-
-    void open_mem_handle(void** ptr, MemHandle* mem_handle) {
-        if (enable_fabric) {
-            size_t size = mem_handle->size;
-
-            CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->inner.cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
-
-            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
-            CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
-            cu_mem_set_access_all(*ptr, size);
-        } else {
-            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->inner.cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
-        }
-    }
-
-    void close_mem_handle(void* ptr) {
-        if (enable_fabric) {
-            cu_mem_free(ptr);
-        } else {
-            CUDA_CHECK(cudaIpcCloseMemHandle(ptr));
-        }
-    }
+}
 }
 
 namespace deep_ep {
