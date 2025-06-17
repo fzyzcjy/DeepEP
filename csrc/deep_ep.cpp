@@ -60,6 +60,8 @@ namespace shared_memory {
 
         return true;
     }
+    
+    SharedMemoryAllocator::SharedMemoryAllocator() : enable_fabric(support_fabric()) {}
 
     void SharedMemoryAllocator::malloc(void** ptr, size_t size_raw) {
         if (enable_fabric) {

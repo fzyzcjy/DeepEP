@@ -36,6 +36,7 @@ constexpr usize_t HANDLE_SIZE = sizeof(MemHandle);
 
 class SharedMemoryAllocator {
 public:
+    SharedMemoryAllocator();
     void malloc(void** ptr, size_t size);
     void free(void* ptr);
     void get_mem_handle(MemHandle* mem_handle, void* ptr);
