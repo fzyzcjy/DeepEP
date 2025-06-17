@@ -23,7 +23,7 @@ namespace shared_memory {
         if (enable_fabric) {
             TODO;
         } else {
-            CUDA_CHECK(cudaIpcGetMemHandle(handle->cuda_ipc_mem_handle, ptr));
+            CUDA_CHECK(cudaIpcGetMemHandle(&handle->cuda_ipc_mem_handle, ptr));
         }
     }
 
