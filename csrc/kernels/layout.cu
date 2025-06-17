@@ -51,9 +51,15 @@ get_dispatch_layout(const int64_t* topk_idx,
         EP_DEVICE_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0 and num_ranks > NUM_MAX_NVL_PEERS);
 
     // Count rank statistics
+#ifndef NVLINK_DOMAIN_LARGE
     constexpr int kNumRDMARanksPerSM = kNumRanksPerSM / NUM_MAX_NVL_PEERS;
+#endif
+
     __shared__ int num_tokens_per_rank_per_thread[kNumThreads][kNumRanksPerSM];
+#ifndef NVLINK_DOMAIN_LARGE
     __shared__ int num_tokens_per_rdma_rank_per_thread[kNumThreads][kNumRDMARanksPerSM];
+#endif
+
     auto sm_begin = (num_experts + kNumExpertsPerSM - 1) / kNumExpertsPerSM;
     int rank_begin_idx = (sm_id - sm_begin) * kNumRanksPerSM, rank_end_idx = min(rank_begin_idx + kNumRanksPerSM, num_ranks);
     int rdma_rank_begin_idx = rank_begin_idx / NUM_MAX_NVL_PEERS, rdma_rank_end_idx = rank_end_idx / NUM_MAX_NVL_PEERS;
@@ -66,20 +72,32 @@ get_dispatch_layout(const int64_t* topk_idx,
         #pragma unroll
         for (int i = 0; i < kNumRanksPerSM; ++ i)
             num_tokens_per_rank_per_thread[thread_id][i] = 0;
+
+#ifndef NVLINK_DOMAIN_LARGE
         #pragma unroll
         for (int i = 0; i < kNumRDMARanksPerSM; ++ i)
             num_tokens_per_rdma_rank_per_thread[thread_id][i] = 0;
+#endif
+
         #pragma unroll
         for (int i = thread_id; i < num_tokens; i += kNumThreads) {
             auto shifted_topk_idx = topk_idx + i * num_topk;
-            int is_in_rank[kNumRanksPerSM] = {0}, is_in_rdma_rank[kNumRDMARanksPerSM] = {0};
+
+            int is_in_rank[kNumRanksPerSM] = {0};
+#ifndef NVLINK_DOMAIN_LARGE
+            int is_in_rdma_rank[kNumRDMARanksPerSM] = {0};
+#endif
+
             #pragma unroll
             for (int j = 0, expert_idx, rank_idx; j < num_topk; ++j) {
                 expert_idx = static_cast<int>(shifted_topk_idx[j]);
                 if (expert_begin <= expert_idx and expert_idx < expert_end) {
                     // Count single rank
                     rank_idx = expert_idx / num_expert_per_rank - rank_begin_idx;
-                    is_in_rank[rank_idx] ++, is_in_rdma_rank[rank_idx / NUM_MAX_NVL_PEERS] ++;
+                    is_in_rank[rank_idx] ++;
+#ifndef NVLINK_DOMAIN_LARGE
+                    is_in_rdma_rank[rank_idx / NUM_MAX_NVL_PEERS] ++;
+#endif
                 }
             }
 
@@ -106,6 +124,7 @@ get_dispatch_layout(const int64_t* topk_idx,
             num_tokens_per_rank[rank_begin_idx + thread_id] = sum;
         }
 
+#ifndef NVLINK_DOMAIN_LARGE
         if (num_tokens_per_rdma_rank != nullptr and rdma_rank_begin_idx + thread_id < rdma_rank_end_idx) {
             int sum = 0;
             #pragma unroll
@@ -113,6 +132,7 @@ get_dispatch_layout(const int64_t* topk_idx,
                 sum += num_tokens_per_rdma_rank_per_thread[i][thread_id];
             num_tokens_per_rdma_rank[rdma_rank_begin_idx + thread_id] = sum;
         }
+#endif
     }
 }
 
