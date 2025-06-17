@@ -46,6 +46,21 @@ namespace shared_memory {
         return size;
     }
 
+    bool support_fabric() {
+        int device_count;
+        CUDA_CHECK(cudaGetDeviceCount(&device_count));
+
+        for (int device = 0; device < device_count; ++device) {
+            int support = 0;
+            CU_CHECK(cuDeviceGetAttribute(&support, CU_DEVICE_ATTRIBUTE_HANDLE_TYPE_FABRIC_SUPPORTED, device));
+            if (!support) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     void malloc(bool enable_fabric, void** ptr, size_t size_raw) {
         if (enable_fabric) {
             CUdevice device;
@@ -56,7 +71,7 @@ namespace shared_memory {
             prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
             prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
             prop.location.id = device;
-            
+
             size_t size = get_size_align_to_granularity(size_raw, prop);
 
             CUmemGenericAllocationHandle handle;
