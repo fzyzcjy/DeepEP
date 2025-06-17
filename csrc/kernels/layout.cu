@@ -61,8 +61,12 @@ get_dispatch_layout(const int64_t* topk_idx,
 #endif
 
     auto sm_begin = (num_experts + kNumExpertsPerSM - 1) / kNumExpertsPerSM;
+
     int rank_begin_idx = (sm_id - sm_begin) * kNumRanksPerSM, rank_end_idx = min(rank_begin_idx + kNumRanksPerSM, num_ranks);
+#ifndef NVLINK_DOMAIN_LARGE
     int rdma_rank_begin_idx = rank_begin_idx / NUM_MAX_NVL_PEERS, rdma_rank_end_idx = rank_end_idx / NUM_MAX_NVL_PEERS;
+#endif
+
     if (rank_begin_idx < rank_end_idx) {
         const auto num_expert_per_rank = num_experts / num_ranks;
         auto expert_begin = rank_begin_idx * num_expert_per_rank;
