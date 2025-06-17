@@ -37,7 +37,16 @@ namespace shared_memory {
         CU_CHECK(cuMemRelease(handle));
     }
 
-    void malloc(bool enable_fabric, void** ptr, size_t size) {
+    void get_size_align_to_granularity(size_t size_raw) {
+        size_t granularity = 0;
+        CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
+
+        size_t size = (size_raw + granularity - 1) & ~(granularity - 1);
+        if (size == 0) size = granularity;
+        return size;
+    }
+
+    void malloc(bool enable_fabric, void** ptr, size_t size_raw) {
         if (enable_fabric) {
             CUdevice device;
             CURESULT_CHECK(cuCtxGetDevice(&device));
@@ -47,12 +56,8 @@ namespace shared_memory {
             prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
             prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
             prop.location.id = device;
-
-            size_t granularity = 0;
-            CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
-
-            size = (size + granularity - 1) & ~(granularity - 1);
-            if (size == 0) size = granularity;
+            
+            size_t size = get_size_align_to_granularity(size_raw);
 
             CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
