@@ -27,6 +27,13 @@ namespace shared_memory {
         }
     }
 
+    void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* handle) {
+        if (enable_fabric) {
+            TODO;
+        } else {
+            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, handle, cudaIpcMemLazyEnablePeerAccess));
+        }
+    }
 }
 
 namespace deep_ep {
@@ -198,7 +205,7 @@ void Buffer::sync(const std::vector<int> &device_ids,
             EP_HOST_ASSERT(handle_str.size() == CUDA_IPC_HANDLE_SIZE);
             if (offset + i != rank) {
                 std::memcpy(ipc_handles[i].reserved, handle_str.c_str(), CUDA_IPC_HANDLE_SIZE);
-                CUDA_CHECK(cudaIpcOpenMemHandle(&buffer_ptrs[i], ipc_handles[i], cudaIpcMemLazyEnablePeerAccess));
+                CUDA_CHECK(shared_memory::open_mem_handle(&buffer_ptrs[i], ipc_handles[i]));
                 barrier_signal_ptrs[i] = reinterpret_cast<int*>(static_cast<uint8_t*>(buffer_ptrs[i]) + num_nvl_bytes);
             } else {
                 EP_HOST_ASSERT(std::memcmp(ipc_handles[i].reserved, handle_str.c_str(), CUDA_IPC_HANDLE_SIZE) == 0);
