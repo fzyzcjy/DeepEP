@@ -25,6 +25,18 @@ namespace shared_memory {
         CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, accessDesc, device_count));
     }
 
+    void cu_mem_free(void* ptr) {
+        CUmemGenericAllocationHandle handle;
+        CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
+
+        size_t size = 0;
+        CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
+
+        CU_CHECK(cuMemUnmap((CUdeviceptr)ptr, size));
+        CU_CHECK(cuMemAddressFree((CUdeviceptr)ptr, size));
+        CU_CHECK(cuMemRelease(handle));
+    }
+
     void malloc(bool enable_fabric, void** ptr, size_t size) {
         if (enable_fabric) {
             CUdevice device;
@@ -55,17 +67,9 @@ namespace shared_memory {
 
     void free(bool enable_fabric, void* ptr) {
         if (enable_fabric) {
-            CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
-
-            size_t size = 0;
-            CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
-
-            CU_CHECK(cuMemUnmap((CUdeviceptr)ptr, size));
-            CU_CHECK(cuMemAddressFree((CUdeviceptr)ptr, size));
-            CU_CHECK(cuMemRelease(handle));
+            cu_mem_free(ptr);
         } else {
-            CUDA_CHECK(cudaFree(buffer_ptrs[nvl_rank]));
+            CUDA_CHECK(cudaFree(ptr));
         }
     }
 
@@ -101,7 +105,7 @@ namespace shared_memory {
 
     void close_mem_handle(bool enable_fabric, void* ptr) {
         if (enable_fabric) {
-            free(true, ptr);
+            cu_mem_free(ptr);
         } else {
             CUDA_CHECK(cudaIpcCloseMemHandle(ptr));
         }
