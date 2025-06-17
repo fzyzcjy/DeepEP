@@ -37,10 +37,7 @@ void cu_mem_free(void* ptr) {
     CU_CHECK(cuMemRelease(handle));
 }
 
-void get_size_align_to_granularity(size_t size_raw, CUmemAllocationProp& prop) {
-    size_t granularity = 0;
-    CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
-
+size_t get_size_align_to_granularity(size_t size_raw, size_t granularity) {
     size_t size = (size_raw + granularity - 1) & ~(granularity - 1);
     if (size == 0) size = granularity;
     return size;
@@ -66,7 +63,7 @@ SharedMemoryAllocator::SharedMemoryAllocator() : enable_fabric(support_fabric())
 void SharedMemoryAllocator::malloc(void** ptr, size_t size_raw) {
     if (enable_fabric) {
         CUdevice device;
-        CURESULT_CHECK(cuCtxGetDevice(&device));
+        CU_CHECK(cuCtxGetDevice(&device));
 
         CUmemAllocationProp prop = {};
         prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
@@ -74,7 +71,10 @@ void SharedMemoryAllocator::malloc(void** ptr, size_t size_raw) {
         prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
         prop.location.id = device;
 
-        size_t size = get_size_align_to_granularity(size_raw, prop);
+        size_t granularity = 0;
+        CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
+
+        size_t size = get_size_align_to_granularity(size_raw, granularity);
 
         CUmemGenericAllocationHandle handle;
         CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
