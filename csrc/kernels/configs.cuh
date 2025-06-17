@@ -1,8 +1,12 @@
 #pragma once
 
-// NOTE HACK
-// #define NUM_MAX_NVL_PEERS 8
+#define NVLINK_DOMAIN_LARGE
+
+#ifdef NVLINK_DOMAIN_LARGE
 #define NUM_MAX_NVL_PEERS 16
+#else
+#define NUM_MAX_NVL_PEERS 8
+#endif
 
 #define NUM_MAX_RDMA_PEERS 20
 #define NUM_WORKSPACE_BYTES (32 * 1024 * 1024)

@@ -50,8 +50,10 @@ private:
 namespace deep_ep {
 
 struct Buffer {
-// HACK remove
-//    EP_STATIC_ASSERT(NUM_MAX_NVL_PEERS == 8, "The number of maximum NVLink peers must be 8");
+
+#ifndef NVLINK_DOMAIN_LARGE
+    EP_STATIC_ASSERT(NUM_MAX_NVL_PEERS == 8, "The number of maximum NVLink peers must be 8");
+#endif
 
 private:
     // Low-latency mode buffer
