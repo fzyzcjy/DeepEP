@@ -64,19 +64,22 @@ namespace shared_memory {
         }
     }
 
-    void get_mem_handle(bool enable_fabric, MemHandle* handle, void* ptr) {
+    void get_mem_handle(bool enable_fabric, MemHandle* mem_handle, void* ptr) {
         if (enable_fabric) {
-            TODO;
+            CUmemGenericAllocationHandle handle;
+            CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
+
+            CU_CHECK(cuMemExportToShareableHandle(&mem_handle->cu_mem_fabric_handle, handle, CU_MEM_HANDLE_TYPE_FABRIC, 0));
         } else {
-            CUDA_CHECK(cudaIpcGetMemHandle(&handle->cuda_ipc_mem_handle, ptr));
+            CUDA_CHECK(cudaIpcGetMemHandle(&mem_handle->cuda_ipc_mem_handle, ptr));
         }
     }
 
-    void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* handle) {
+    void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* mem_handle) {
         if (enable_fabric) {
             TODO;
         } else {
-            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
+            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
         }
     }
 
