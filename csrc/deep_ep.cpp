@@ -11,6 +11,14 @@
 #include "kernels/configs.cuh"
 
 namespace shared_memory {
+    void malloc(void** ptr, size_t size) {
+        if (enable_fabric) {
+            TODO;
+        } else {
+            CUDA_CHECK(cudaMalloc(ptr, size));
+        }
+    }
+
     void get_mem_handle(bool enable_fabric, MemHandle* handle, void* ptr) {
         if (enable_fabric) {
             TODO;
@@ -56,7 +64,7 @@ Buffer::Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_
 
     if (num_nvl_bytes > 0) {
         // Local IPC: alloc local memory and set local IPC handles
-        CUDA_CHECK(cudaMalloc(&buffer_ptrs[nvl_rank], num_nvl_bytes + barrier_signal_bytes + buffer_ptr_bytes + barrier_signal_ptr_bytes));
+        CUDA_CHECK(shared_memory::malloc(&buffer_ptrs[nvl_rank], num_nvl_bytes + barrier_signal_bytes + buffer_ptr_bytes + barrier_signal_ptr_bytes));
         CUDA_CHECK(shared_memory::get_mem_handle(&ipc_handles[nvl_rank], buffer_ptrs[nvl_rank]));
         buffer_ptrs_gpu = reinterpret_cast<void**>(static_cast<uint8_t*>(buffer_ptrs[nvl_rank]) + num_nvl_bytes + barrier_signal_bytes);
 
