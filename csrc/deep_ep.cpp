@@ -77,13 +77,12 @@ namespace shared_memory {
 
     void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* mem_handle) {
         if (enable_fabric) {
-            CUmemFabricHandle export_handle;
-            memcpy(&export_handle, output_buffer.data(), sizeof(export_handle));
-            void *shm_addr = nullptr;
+            TODO_size;
+
             CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemImportFromShareableHandle(&handle, &export_handle, CU_MEM_HANDLE_TYPE_FABRIC));
-            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)&shm_addr, entry.length, 0, 0, 0));
-            CU_CHECK(cuMemMap((CUdeviceptr)shm_addr, entry.length, 0, handle, 0));
+            CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
+            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
+            CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
 
             int device_count;
             CUDA_CHECK(cudaGetDeviceCount(&device_count));
