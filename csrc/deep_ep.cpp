@@ -303,11 +303,11 @@ void Buffer::sync(const std::vector<int> &device_ids,
             auto handle_str = std::string(all_gathered_handles[offset + i].value());
             EP_HOST_ASSERT(handle_str.size() == shared_memory::HANDLE_SIZE);
             if (offset + i != rank) {
-                std::memcpy(ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE);
+                std::memcpy(&ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE);
                 shared_memory_allocator.open_mem_handle(&buffer_ptrs[i], ipc_handles[i]);
                 barrier_signal_ptrs[i] = reinterpret_cast<int*>(static_cast<uint8_t*>(buffer_ptrs[i]) + num_nvl_bytes);
             } else {
-                EP_HOST_ASSERT(std::memcmp(ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE) == 0);
+                EP_HOST_ASSERT(std::memcmp(&ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE) == 0);
             }
         }
 
