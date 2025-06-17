@@ -37,7 +37,7 @@ namespace shared_memory {
         CU_CHECK(cuMemRelease(handle));
     }
 
-    void get_size_align_to_granularity(size_t size_raw) {
+    void get_size_align_to_granularity(size_t size_raw, CUmemAllocationProp& prop) {
         size_t granularity = 0;
         CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
 
@@ -57,7 +57,7 @@ namespace shared_memory {
             prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
             prop.location.id = device;
             
-            size_t size = get_size_align_to_granularity(size_raw);
+            size_t size = get_size_align_to_granularity(size_raw, prop);
 
             CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
