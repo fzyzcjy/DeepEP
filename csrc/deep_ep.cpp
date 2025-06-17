@@ -56,9 +56,9 @@ namespace shared_memory {
 
             CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
+
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
-
             cu_mem_set_access_all(*ptr, size);
         } else {
             CUDA_CHECK(cudaMalloc(ptr, size));
@@ -93,10 +93,6 @@ namespace shared_memory {
 
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
-
-            int device_count;
-            CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
             cu_mem_set_access_all(*ptr, size);
         } else {
             CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
