@@ -86,6 +86,7 @@ namespace shared_memory {
 
             CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
+
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
 
