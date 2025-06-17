@@ -36,7 +36,9 @@ do { \
 do { \
     CUresult e = (cmd); \
     if (e != CUDA_SUCCESS) { \
-        throw EPException("CU", __FILE__, __LINE__, cuGetErrorString(e)); \
+        const char *error_str = NULL; \
+        cuGetErrorString(e, &error_str); \
+        throw EPException("CU", __FILE__, __LINE__, std::string(error_str)); \
     } \
 } while (0)
 #endif
