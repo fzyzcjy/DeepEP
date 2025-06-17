@@ -1,6 +1,6 @@
 #pragma once
 
-# NOTE HACK
+// NOTE HACK
 // #define NUM_MAX_NVL_PEERS 8
 #define NUM_MAX_NVL_PEERS 16
 
