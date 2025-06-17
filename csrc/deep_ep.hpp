@@ -32,7 +32,7 @@ struct MemHandle {
     size_t size;
 };
 
-constexpr usize_t HANDLE_SIZE = sizeof(MemHandle);
+constexpr size_t HANDLE_SIZE = sizeof(MemHandle);
 
 class SharedMemoryAllocator {
 public:
