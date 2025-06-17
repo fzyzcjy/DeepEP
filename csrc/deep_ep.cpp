@@ -13,17 +13,14 @@
 namespace shared_memory {
     void malloc(void** ptr, size_t size) {
         if (enable_fabric) {
-            int cudaDev;
-            CUDA_CHECK(cudaGetDevice(&cudaDev));
-
-            CUdevice currentDev;
-            CU_CHECK(cuDeviceGet(&currentDev, cudaDev));
+            CUdevice device;
+            CURESULT_CHECK(cuCtxGetDevice(&device));
 
             CUmemAllocationProp prop = {};
             prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
             prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
             prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
-            prop.location.id = currentDev;
+            prop.location.id = device;
 
             size_t granularity = 0;
             CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
