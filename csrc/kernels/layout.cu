@@ -132,6 +132,8 @@ get_dispatch_layout(const int64_t* topk_idx,
                 sum += num_tokens_per_rdma_rank_per_thread[i][thread_id];
             num_tokens_per_rdma_rank[rdma_rank_begin_idx + thread_id] = sum;
         }
+#else
+        EP_DEVICE_ASSERT(num_tokens_per_rdma_rank == nullptr);
 #endif
     }
 }
