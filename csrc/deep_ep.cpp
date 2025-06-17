@@ -77,7 +77,24 @@ namespace shared_memory {
 
     void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* mem_handle) {
         if (enable_fabric) {
-            TODO;
+            CUmemFabricHandle export_handle;
+            memcpy(&export_handle, output_buffer.data(), sizeof(export_handle));
+            void *shm_addr = nullptr;
+            CUmemGenericAllocationHandle handle;
+            CU_CHECK(cuMemImportFromShareableHandle(&handle, &export_handle, CU_MEM_HANDLE_TYPE_FABRIC));
+            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)&shm_addr, entry.length, 0, 0, 0));
+            CU_CHECK(cuMemMap((CUdeviceptr)shm_addr, entry.length, 0, handle, 0));
+
+            int device_count;
+            CUDA_CHECK(cudaGetDeviceCount(&device_count));
+
+            CUmemAccessDesc accessDesc[device_count];
+            for (int device_id = 0; device_id < device_count; ++device_id) {
+                accessDesc[device_id].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+                accessDesc[device_id].location.id = device_id;
+                accessDesc[device_id].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+            }
+            CU_CHECK(cuMemSetAccess((CUdeviceptr)shm_addr, entry.length, accessDesc, device_count));
         } else {
             CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
         }
