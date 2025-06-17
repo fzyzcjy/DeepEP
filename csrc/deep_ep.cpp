@@ -74,28 +74,30 @@ namespace shared_memory {
     }
 
     void get_mem_handle(bool enable_fabric, MemHandle* mem_handle, void* ptr) {
+        mem_handle->size = TODO;
+
         if (enable_fabric) {
             CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
 
-            CU_CHECK(cuMemExportToShareableHandle(&mem_handle->cu_mem_fabric_handle, handle, CU_MEM_HANDLE_TYPE_FABRIC, 0));
+            CU_CHECK(cuMemExportToShareableHandle(&mem_handle->inner.cu_mem_fabric_handle, handle, CU_MEM_HANDLE_TYPE_FABRIC, 0));
         } else {
-            CUDA_CHECK(cudaIpcGetMemHandle(&mem_handle->cuda_ipc_mem_handle, ptr));
+            CUDA_CHECK(cudaIpcGetMemHandle(&mem_handle->inner.cuda_ipc_mem_handle, ptr));
         }
     }
 
     void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* mem_handle) {
         if (enable_fabric) {
-            TODO_size;
+            size_t size = mem_handle->size;
 
             CUmemGenericAllocationHandle handle;
-            CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
+            CU_CHECK(cuMemImportFromShareableHandle(&handle, &mem_handle->inner.cu_mem_fabric_handle, CU_MEM_HANDLE_TYPE_FABRIC));
 
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, 0, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
             cu_mem_set_access_all(*ptr, size);
         } else {
-            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
+            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->inner.cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
         }
     }
 

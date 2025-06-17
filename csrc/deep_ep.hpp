@@ -21,10 +21,16 @@
 #endif
 
 namespace shared_memory {
-typedef union {
+
+union MemHandleInner {
   cudaIpcMemHandle_t cuda_ipc_mem_handle;
   CUmemFabricHandle cu_mem_fabric_handle;
-} MemHandle;
+};
+
+struct MemHandle {
+    MemHandleInner inner;
+    size_t size;
+};
 
 constexpr usize_t HANDLE_SIZE = sizeof(MemHandle);
 }
