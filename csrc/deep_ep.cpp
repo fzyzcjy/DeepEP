@@ -83,7 +83,7 @@ void SharedMemoryAllocator::malloc(void** ptr, size_t size_raw) {
         CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
         cu_mem_set_access_all(*ptr, size);
     } else {
-        CUDA_CHECK(cudaMalloc(ptr, size));
+        CUDA_CHECK(cudaMalloc(ptr, size_raw));
     }
 }
 
@@ -221,7 +221,7 @@ Buffer::~Buffer() noexcept(false) {
         }
 
         // Free local buffer and error flag
-        shared_memory_allocator.free(buffer_ptrs[nvl_rank]));
+        shared_memory_allocator.free(buffer_ptrs[nvl_rank]);
     }
 
     // Free NVSHMEM
@@ -304,7 +304,7 @@ void Buffer::sync(const std::vector<int> &device_ids,
             EP_HOST_ASSERT(handle_str.size() == shared_memory::HANDLE_SIZE);
             if (offset + i != rank) {
                 std::memcpy(&ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE);
-                shared_memory_allocator.open_mem_handle(&buffer_ptrs[i], ipc_handles[i]);
+                shared_memory_allocator.open_mem_handle(&buffer_ptrs[i], &ipc_handles[i]);
                 barrier_signal_ptrs[i] = reinterpret_cast<int*>(static_cast<uint8_t*>(buffer_ptrs[i]) + num_nvl_bytes);
             } else {
                 EP_HOST_ASSERT(std::memcmp(&ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE) == 0);
