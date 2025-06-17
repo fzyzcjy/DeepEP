@@ -74,7 +74,10 @@ namespace shared_memory {
     }
 
     void get_mem_handle(bool enable_fabric, MemHandle* mem_handle, void* ptr) {
-        mem_handle->size = TODO;
+        size_t size = 0;
+        CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
+
+        mem_handle->size = size;
 
         if (enable_fabric) {
             CUmemGenericAllocationHandle handle;
