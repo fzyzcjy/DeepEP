@@ -161,7 +161,8 @@ int Buffer::get_local_device_id() const {
 }
 
 pybind11::bytearray Buffer::get_local_ipc_handle() const {
-    return {ipc_handles[nvl_rank].reserved, CUDA_IPC_HANDLE_SIZE};
+    const shared_memory::MemHandle& handle = ipc_handles[nvl_rank];
+    return {reinterpret_cast<const char*>(&handle), sizeof(handle)};
 }
 
 pybind11::bytearray Buffer::get_local_nvshmem_unique_id() const {
