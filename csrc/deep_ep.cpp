@@ -61,7 +61,7 @@ namespace shared_memory {
         return true;
     }
 
-    void malloc(bool enable_fabric, void** ptr, size_t size_raw) {
+    void malloc(void** ptr, size_t size_raw) {
         if (enable_fabric) {
             CUdevice device;
             CURESULT_CHECK(cuCtxGetDevice(&device));
@@ -85,7 +85,7 @@ namespace shared_memory {
         }
     }
 
-    void free(bool enable_fabric, void* ptr) {
+    void free(void* ptr) {
         if (enable_fabric) {
             cu_mem_free(ptr);
         } else {
@@ -93,7 +93,7 @@ namespace shared_memory {
         }
     }
 
-    void get_mem_handle(bool enable_fabric, MemHandle* mem_handle, void* ptr) {
+    void get_mem_handle(MemHandle* mem_handle, void* ptr) {
         size_t size = 0;
         CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
 
@@ -109,7 +109,7 @@ namespace shared_memory {
         }
     }
 
-    void open_mem_handle(bool enable_fabric, void** ptr, MemHandle* mem_handle) {
+    void open_mem_handle(void** ptr, MemHandle* mem_handle) {
         if (enable_fabric) {
             size_t size = mem_handle->size;
 
@@ -124,7 +124,7 @@ namespace shared_memory {
         }
     }
 
-    void close_mem_handle(bool enable_fabric, void* ptr) {
+    void close_mem_handle(void* ptr) {
         if (enable_fabric) {
             cu_mem_free(ptr);
         } else {
