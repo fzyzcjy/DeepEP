@@ -34,6 +34,16 @@ struct MemHandle {
 
 constexpr usize_t HANDLE_SIZE = sizeof(MemHandle);
 
+class SharedMemoryAllocator {
+public:
+    void malloc(void** ptr, size_t size);
+    void free(void* ptr);
+    void get_mem_handle(MemHandle* mem_handle, void* ptr);
+    void open_mem_handle(void** ptr, MemHandle* mem_handle);
+    void close_mem_handle(void* ptr);
+private:
+    bool enable_fabric;
+};
 }
 
 namespace deep_ep {
