@@ -31,7 +31,7 @@ namespace shared_memory {
         if (enable_fabric) {
             TODO;
         } else {
-            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, handle, cudaIpcMemLazyEnablePeerAccess));
+            CUDA_CHECK(cudaIpcOpenMemHandle(ptr, handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
         }
     }
 }
