@@ -108,9 +108,11 @@ get_dispatch_layout(const int64_t* topk_idx,
                 num_tokens_per_rank_per_thread[thread_id][j] += (is_in_rank[j] > 0);
             }
 
+#ifndef NVLINK_DOMAIN_LARGE
             #pragma unroll
             for (int j = 0; j + rdma_rank_begin_idx < rdma_rank_end_idx; ++ j)
                 num_tokens_per_rdma_rank_per_thread[thread_id][j] += (is_in_rdma_rank[j] > 0);
+#endif
         }
         __syncthreads();
 
