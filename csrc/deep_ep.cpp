@@ -13,8 +13,6 @@
 namespace shared_memory {
     void malloc(void** ptr, size_t size) {
         if (enable_fabric) {
-            CUmemGenericAllocationHandle handle;
-
             int cudaDev;
             CUDA_CHECK(cudaGetDevice(&cudaDev));
 
@@ -33,6 +31,7 @@ namespace shared_memory {
             size = (size + granularity - 1) & ~(granularity - 1);
             if (size == 0) size = granularity;
 
+            CUmemGenericAllocationHandle handle;
             CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
