@@ -101,7 +101,15 @@ namespace shared_memory {
 
     void close_mem_handle(bool enable_fabric, void* ptr) {
         if (enable_fabric) {
-            TODO;
+            CUmemGenericAllocationHandle handle;
+            CU_CHECK(cuMemRetainAllocationHandle(&handle, ptr));
+
+            size_t size = 0;
+            CU_CHECK(cuMemGetAddressRange(NULL, &size, (CUdeviceptr)ptr));
+
+            CU_CHECK(cuMemUnmap((CUdeviceptr)ptr, size));
+            CU_CHECK(cuMemAddressFree((CUdeviceptr)ptr, size));
+            CU_CHECK(cuMemRelease(handle));
         } else {
             CUDA_CHECK(cudaIpcCloseMemHandle(ptr));
         }
