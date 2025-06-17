@@ -47,7 +47,7 @@ namespace shared_memory {
         if (enable_fabric) {
             TODO;
         } else {
-            CUDA_CHECK(cudaIpcCloseMemHandle(buffer_ptrs[i]));
+            CUDA_CHECK(cudaIpcCloseMemHandle(ptr));
         }
     }
 }
