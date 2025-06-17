@@ -15,14 +15,14 @@ namespace shared_memory {
         int device_count;
         CUDA_CHECK(cudaGetDeviceCount(&device_count));
 
-        CUmemAccessDesc accessDesc[device_count];
+        CUmemAccessDesc access_desc[device_count];
         for (int idx = 0; idx < device_count; ++idx) {
-            accessDesc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-            accessDesc[idx].location.id = idx;
-            accessDesc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+            access_desc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+            access_desc[idx].location.id = idx;
+            access_desc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
         }
 
-        CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, accessDesc, device_count));
+        CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, access_desc, device_count));
     }
 
     void cu_mem_free(void* ptr) {
