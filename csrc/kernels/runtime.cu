@@ -20,7 +20,6 @@ __global__ void barrier(int** barrier_signal_ptrs, int rank) {
 }
 
 void barrier(int** barrier_signal_ptrs, int rank, int num_ranks, cudaStream_t stream) {
-    // TODO correct?
     // NOTE HACK
     nvshmem_barrier_all();
 
