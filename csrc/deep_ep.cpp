@@ -170,8 +170,8 @@ Buffer::Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_
 
     if (num_nvl_bytes > 0) {
         // Local IPC: alloc local memory and set local IPC handles
-        shared_memory::malloc(&buffer_ptrs[nvl_rank], num_nvl_bytes + barrier_signal_bytes + buffer_ptr_bytes + barrier_signal_ptr_bytes);
-        shared_memory::get_mem_handle(&ipc_handles[nvl_rank], buffer_ptrs[nvl_rank]);
+        shared_memory_allocator.malloc(&buffer_ptrs[nvl_rank], num_nvl_bytes + barrier_signal_bytes + buffer_ptr_bytes + barrier_signal_ptr_bytes);
+        shared_memory_allocator.get_mem_handle(&ipc_handles[nvl_rank], buffer_ptrs[nvl_rank]);
         buffer_ptrs_gpu = reinterpret_cast<void**>(static_cast<uint8_t*>(buffer_ptrs[nvl_rank]) + num_nvl_bytes + barrier_signal_bytes);
 
         // Set barrier signals
@@ -217,11 +217,11 @@ Buffer::~Buffer() noexcept(false) {
         // Close remote IPC
         if (is_available()) {
             for (int i = 0; i < num_nvl_ranks; ++ i) if (i != nvl_rank)
-                shared_memory::close_mem_handle(buffer_ptrs[i]);
+                shared_memory_allocator.close_mem_handle(buffer_ptrs[i]);
         }
 
         // Free local buffer and error flag
-        shared_memory::free(buffer_ptrs[nvl_rank]));
+        shared_memory_allocator.free(buffer_ptrs[nvl_rank]));
     }
 
     // Free NVSHMEM
@@ -304,7 +304,7 @@ void Buffer::sync(const std::vector<int> &device_ids,
             EP_HOST_ASSERT(handle_str.size() == shared_memory::HANDLE_SIZE);
             if (offset + i != rank) {
                 std::memcpy(ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE);
-                shared_memory::open_mem_handle(&buffer_ptrs[i], ipc_handles[i]);
+                shared_memory_allocator.open_mem_handle(&buffer_ptrs[i], ipc_handles[i]);
                 barrier_signal_ptrs[i] = reinterpret_cast<int*>(static_cast<uint8_t*>(buffer_ptrs[i]) + num_nvl_bytes);
             } else {
                 EP_HOST_ASSERT(std::memcmp(ipc_handles[i], handle_str.c_str(), shared_memory::HANDLE_SIZE) == 0);
