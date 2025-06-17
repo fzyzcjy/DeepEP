@@ -13,7 +13,40 @@
 namespace shared_memory {
     void malloc(void** ptr, size_t size) {
         if (enable_fabric) {
-            TODO;
+            CUmemGenericAllocationHandle handle;
+
+            int cudaDev;
+            CUDA_CHECK(cudaGetDevice(&cudaDev));
+
+            CUdevice currentDev;
+            CU_CHECK(cuDeviceGet(&currentDev, cudaDev));
+
+            CUmemAllocationProp prop = {};
+            prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
+            prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+            prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_FABRIC;
+            prop.location.id = currentDev;
+
+            size_t granularity = 0;
+            CU_CHECK(cuMemGetAllocationGranularity(&granularity, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM));
+
+            size = (size + granularity - 1) & ~(granularity - 1);
+            if (size == 0) size = granularity;
+
+            CU_CHECK(cuMemCreate(&handle, size, &prop, 0));
+            CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
+            CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
+
+            int device_count;
+            CUDA_CHECK(cudaGetDeviceCount(&device_count));
+
+            CUmemAccessDesc accessDesc[device_count];
+            for (int idx = 0; idx < device_count; ++idx) {
+                accessDesc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+                accessDesc[idx].location.id = idx;
+                accessDesc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+            }
+            CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, accessDesc, device_count));
         } else {
             CUDA_CHECK(cudaMalloc(ptr, size));
         }

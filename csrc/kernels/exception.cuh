@@ -31,6 +31,16 @@ do { \
 } while (0)
 #endif
 
+#ifndef CU_CHECK
+#define CU_CHECK(cmd) \
+do { \
+    CUresult e = (cmd); \
+    if (e != CUDA_SUCCESS) { \
+        throw EPException("CUDA", __FILE__, __LINE__, std::string(e)); \
+    } \
+} while (0)
+#endif
+
 #ifndef EP_HOST_ASSERT
 #define EP_HOST_ASSERT(cond) \
 do { \
