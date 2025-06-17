@@ -11,6 +11,20 @@
 #include "kernels/configs.cuh"
 
 namespace shared_memory {
+    void cu_mem_set_access_all(void* ptr, size_t size) {
+        int device_count;
+        CUDA_CHECK(cudaGetDeviceCount(&device_count));
+
+        CUmemAccessDesc accessDesc[device_count];
+        for (int idx = 0; idx < device_count; ++idx) {
+            accessDesc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+            accessDesc[idx].location.id = idx;
+            accessDesc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+        }
+
+        CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, accessDesc, device_count));
+    }
+
     void malloc(void** ptr, size_t size) {
         if (enable_fabric) {
             CUdevice device;
@@ -33,16 +47,7 @@ namespace shared_memory {
             CU_CHECK(cuMemAddressReserve((CUdeviceptr *)ptr, size, granularity, 0, 0));
             CU_CHECK(cuMemMap((CUdeviceptr)*ptr, size, 0, handle, 0));
 
-            int device_count;
-            CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
-            CUmemAccessDesc accessDesc[device_count];
-            for (int idx = 0; idx < device_count; ++idx) {
-                accessDesc[idx].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-                accessDesc[idx].location.id = idx;
-                accessDesc[idx].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
-            }
-            CU_CHECK(cuMemSetAccess((CUdeviceptr)ptr, size, accessDesc, device_count));
+            cu_mem_set_access_all(*ptr, size);
         } else {
             CUDA_CHECK(cudaMalloc(ptr, size));
         }
@@ -87,13 +92,7 @@ namespace shared_memory {
             int device_count;
             CUDA_CHECK(cudaGetDeviceCount(&device_count));
 
-            CUmemAccessDesc accessDesc[device_count];
-            for (int device_id = 0; device_id < device_count; ++device_id) {
-                accessDesc[device_id].location.type = CU_MEM_LOCATION_TYPE_DEVICE;
-                accessDesc[device_id].location.id = device_id;
-                accessDesc[device_id].flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
-            }
-            CU_CHECK(cuMemSetAccess((CUdeviceptr)shm_addr, entry.length, accessDesc, device_count));
+            cu_mem_set_access_all(*ptr, size);
         } else {
             CUDA_CHECK(cudaIpcOpenMemHandle(ptr, mem_handle->cuda_ipc_mem_handle, cudaIpcMemLazyEnablePeerAccess));
         }
