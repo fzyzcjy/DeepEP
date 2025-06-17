@@ -20,6 +20,13 @@
 #define TORCH_EXTENSION_NAME deep_ep_cpp
 #endif
 
+namespace shared_memory {
+typedef union {
+  cudaIpcMemHandle_t cuda_ipc_mem_handle;
+  CUmemFabricHandle cu_mem_fabric_handle;
+} MemHandle;
+}
+
 namespace deep_ep {
 
 struct Buffer {

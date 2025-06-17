@@ -10,6 +10,12 @@
 #include "kernels/api.cuh"
 #include "kernels/configs.cuh"
 
+namespace shared_memory {
+    void get_mem_handle(bool enable_fabric, ) {
+    }
+
+}
+
 namespace deep_ep {
 
 Buffer::Buffer(int rank, int num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode):
