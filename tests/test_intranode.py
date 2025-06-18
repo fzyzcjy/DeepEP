@@ -237,7 +237,9 @@ def test_loop(local_rank: int, num_local_ranks: int):
                             num_qps_per_rank=(ll_num_experts // num_ranks if test_ll_compatibility else 1))
     torch.manual_seed(rank)
 
-    for i in (24, ):
+    num_sms = int(os.environ.get("DEEPEP_TEST_NUM_SMS", "24"))
+
+    for i in (num_sms, ):
         test_main(i, local_rank, num_ranks, rank, buffer, group)
         if local_rank == 0:
             print('', flush=True)
