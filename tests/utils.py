@@ -212,8 +212,13 @@ def extract_detail_times_from_prof(prof, kernel_names, duplicate_name_period: in
         prof.export_chrome_trace(tmp.name)
         profile_data = json.loads(Path(tmp.name).read_text())
 
-    events = profile_data["traceEvents"]
-    return TODO
+    ans = {}
+    for kernel_name in kernel_names:
+        events = [e for e in profile_data["traceEvents"] if e["name"] == kernel_name]
+        events = sorted(events, key=lambda e: e["ts"])
+        durations = [e["dur"] for e in events]
+        ans[kernel_name] = TODO
+    return ans
 
 def hash_tensor(t: torch.Tensor):
     return t.view(torch.int64).sum().item()
