@@ -217,8 +217,11 @@ def extract_detail_times_from_prof(prof, kernel_names, duplicate_name_period: in
         events = [e for e in profile_data["traceEvents"] if e["name"] == kernel_name]
         events = sorted(events, key=lambda e: e["ts"])
         durations = [e["dur"] for e in events]
-        ans[kernel_name] = TODO
+        ans[kernel_name] = [list_mean(durations[i::duplicate_name_period]) for i in range(duplicate_name_period)]
     return ans
+
+def list_mean(xs):
+    return sum(xs) / len(xs)
 
 def hash_tensor(t: torch.Tensor):
     return t.view(torch.int64).sum().item()
