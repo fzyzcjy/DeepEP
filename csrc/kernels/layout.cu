@@ -149,7 +149,7 @@ void get_dispatch_layout(const int64_t* topk_idx,
                          int* num_tokens_per_expert, bool* is_token_in_rank,
                          int num_tokens, int num_topk, int num_ranks, int num_experts,
                          cudaStream_t stream) {
-    constexpr int kNumThreads = 256, kNumExpertsPerSM = 32, kNumRanksPerSM = 8;
+    constexpr int kNumThreads = 256, kNumExpertsPerSM = 8, kNumRanksPerSM = 1;
     int num_sms = ((num_experts + kNumExpertsPerSM - 1) / kNumExpertsPerSM) + (num_ranks + kNumRanksPerSM - 1) / kNumRanksPerSM;
 
 #ifndef NVLINK_DOMAIN_LARGE
