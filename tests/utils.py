@@ -1,4 +1,8 @@
 import inspect
+import json
+import tempfile
+from pathlib import Path
+
 import numpy as np
 import os
 import sys
@@ -195,8 +199,20 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
                         kernel_times.append(float(time_str.replace(unit, '')) / scale)
                         break
                 break
-    return tuple(kernel_times) if is_tupled else kernel_times[0]
 
+    if duplicate_name_period is None:
+        return tuple(kernel_times) if is_tupled else kernel_times[0]
+    else:
+        detail_times = extract_detail_times_from_prof(prof)
+        return tuple(kernel_times) + (detail_times,)
+
+
+def extract_detail_times_from_prof(prof):
+    with tempfile.NamedTemporaryFile(suffix=".json") as tmp:
+        prof.export_chrome_trace(tmp.name)
+        profile_data = json.loads(Path(tmp.name).read_text())
+
+    return TODO
 
 def hash_tensor(t: torch.Tensor):
     return t.view(torch.int64).sum().item()
