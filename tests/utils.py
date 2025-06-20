@@ -203,15 +203,16 @@ def bench_kineto(fn, kernel_names, num_tests: int = 30, suppress_kineto_output: 
     if duplicate_name_period is None:
         return tuple(kernel_times) if is_tupled else kernel_times[0]
     else:
-        detail_times = extract_detail_times_from_prof(prof)
+        detail_times = extract_detail_times_from_prof(prof, kernel_names=kernel_names, duplicate_name_period=duplicate_name_period)
         return tuple(kernel_times) + (detail_times,)
 
 
-def extract_detail_times_from_prof(prof):
+def extract_detail_times_from_prof(prof, kernel_names, duplicate_name_period: int):
     with tempfile.NamedTemporaryFile(suffix=".json") as tmp:
         prof.export_chrome_trace(tmp.name)
         profile_data = json.loads(Path(tmp.name).read_text())
 
+    events = profile_data["traceEvents"]
     return TODO
 
 def hash_tensor(t: torch.Tensor):
