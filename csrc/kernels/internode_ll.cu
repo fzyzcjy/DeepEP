@@ -382,6 +382,20 @@ LAUNCH_KERNEL(&cfg, dispatch_func, \
 #undef DISPATCH_LAUNCH_CASE
 }
 
+// copy from: https://github.com/pytorch/pytorch/pull/139227
+__device__ __forceinline__ void wait_signal(uint32_t* addr) {
+  int ready = *addr;
+  while (!ready) {
+    asm volatile("ld.volatile.global.b32 %0, [%1];"
+                 : "=r"(ready)
+                 : "l"(addr)
+                 : "memory");
+// #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ > 700)
+//     asm volatile("nanosleep.u32 20;");
+// #endif
+  };
+}
+
 template <int kHidden, int kNumMaxTopk>
 __global__ __launch_bounds__(1024, 1) void
 combine(void* combined_x,
