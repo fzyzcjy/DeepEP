@@ -84,30 +84,24 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 
 def forward_layer(
-        self,
-        hidden_states_fp8: Tuple[torch.Tensor, torch.Tensor],
-        masked_m: torch.Tensor,
-        expected_m: int,
+    w13_weight,
+    w2_weight,
 ):
-    assert self.quant_method is not None
-    assert self.activation == "silu"
-
     # GroupGemm-0
     num_groups, m, k = hidden_states_fp8[0].size()
-    n = self.w13_weight.size(1)
+    n = w13_weight.size(1)
     expected_m = min(expected_m, m)
     gateup_output = torch.empty(
         (num_groups, m, n), device=hidden_states_fp8[0].device, dtype=torch.bfloat16
     )
     deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_masked(
         hidden_states_fp8,
-        self.w13_weight_fp8,
+        w13_weight_fp8,
         gateup_output,
         masked_m,
         expected_m,
-        recipe=(1, 128, 128) if deep_gemm_wrapper.DEEPGEMM_BLACKWELL else None,
+        recipe=(1, 128, 128),
     )
-    dispose_tensor(hidden_states_fp8[0])
 
     # Act
     down_input = torch.empty(
@@ -117,7 +111,7 @@ def forward_layer(
             gateup_output.shape[2] // 2,
         ),
         device=gateup_output.device,
-        dtype=self.fp8_dtype,
+        dtype=fp8_dtype,
     )
     scale_block_size = 128
     down_input_scale = torch.empty(
@@ -135,32 +129,23 @@ def forward_layer(
         down_input_scale,
         scale_block_size,
         masked_m,
-        scale_ue8m0=deep_gemm_wrapper.DEEPGEMM_SCALE_UE8M0,
+        scale_ue8m0=True,
     )
     del gateup_output
 
     # GroupGemm-1
-    n = self.w2_weight.size(1)
-    down_input_fp8 = (
-        down_input,
-        (
-            down_input_scale
-            if deep_gemm_wrapper.DEEPGEMM_SCALE_UE8M0
-            else deep_gemm_wrapper.get_col_major_tma_aligned_tensor(
-                down_input_scale
-            )
-        ),
-    )
+    n = w2_weight.size(1)
+    down_input_fp8 = (down_input, down_input_scale)
     down_output = torch.empty(
         (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
     )
     deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_masked(
         down_input_fp8,
-        self.w2_weight_fp8,
+        w2_weight_fp8,
         down_output,
         masked_m,
         expected_m,
-        recipe=(1, 128, 128) if deep_gemm_wrapper.DEEPGEMM_BLACKWELL else None,
+        recipe=(1, 128, 128),
     )
 
     return down_output
