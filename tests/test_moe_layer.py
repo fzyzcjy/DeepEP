@@ -244,25 +244,34 @@ def forward_layer_overlap(
 
     src_signals = torch.zeros(num_local_experts, dtype=torch.uint32, device=down_input.device)
 
-    deep_gemm.fp8_m_grouped_gemm_nt_masked(
-        down_input_fp8,
-        w2_weight_fp8,
-        down_output,
-        masked_m,
-        expected_m,
-        recipe=(1, 128, 128),
-    )
-
     combined_x, combine_event, combine_hook = buffer.low_latency_combine(
         down_output, topk_idx, topk_weights, comm_handle,
         return_recv_hook=True,
         async_finish=True, # NOTE
     )
+
+    for local_expert_idx in range(num_local_experts):
+        deep_gemm.fp8_m_grouped_gemm_nt_masked(
+            _pick_expert_fp8(down_input_fp8, local_expert_idx=local_expert_idx),
+            _pick_expert_fp8(w2_weight_fp8, local_expert_idx=local_expert_idx),
+            down_output,
+            masked_m,
+            expected_m,
+            recipe=(1, 128, 128),
+        )
+
     combine_event.current_stream_wait()
     large_gemm()
     combine_hook()
 
     return combined_x
+
+
+def _pick_expert_fp8(a, local_expert_idx):
+    return [
+        a[0][local_expert_idx:local_expert_idx + 1, :, :],
+        a[1][local_expert_idx:local_expert_idx + 1, :, :],
+    ]
 
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
