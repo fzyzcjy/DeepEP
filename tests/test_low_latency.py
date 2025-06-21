@@ -31,10 +31,15 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     for i in range(10):
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
+    hack_skip_no_hook = bool(int(os.environ.get("DEEPEP_HACK_SKIP_NO_HOOK", "0")))
+
     # Check dispatch correctness
     do_check = bool(int(os.environ.get("DEEPEP_HACK_DO_CHECK", "1")))
     hash_value, num_times = 0, 0
     for return_recv_hook in (False, True):
+        if hack_skip_no_hook and not return_recv_hook:
+            continue
+
         for dispatch_use_fp8 in (False, True):
             for round_scale in (False, True) if dispatch_use_fp8 else (False, ):
                 for use_ue8m0 in (False, True) if round_scale else (False, ):
@@ -138,14 +143,18 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         num_combine_comm_bytes += num_bf16_bytes * num_selections
 
     # Dispatch + combine testing
-    avg_t, min_t, max_t = bench(partial(test_func, zero_copy=False, return_recv_hook=False))
-    print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
-          f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
+    if not hack_skip_no_hook:
+        avg_t, min_t, max_t = bench(partial(test_func, zero_copy=False, return_recv_hook=False))
+        print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
+              f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
     output_data = {}
 
     # Separate profiling
     for return_recv_hook in (False, True):
+        if hack_skip_no_hook and not return_recv_hook:
+            continue
+
         group.barrier()
         bench_output = bench_kineto(partial(test_func, zero_copy=True, return_recv_hook=return_recv_hook),
                                              kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
