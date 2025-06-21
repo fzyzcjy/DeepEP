@@ -157,7 +157,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
         group.barrier()
         bench_output = bench_kineto(partial(test_func, zero_copy=True, return_recv_hook=return_recv_hook),
-                                             kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
+                                             kernel_names=('dispatch', 'combine'),
+                                             barrier_comm_profiling=bool(int(os.getenv("DEEPEP_BARRIER_COMM_PROFILING", "1"))),
                                              suppress_kineto_output=True, duplicate_name_period=2 if return_recv_hook else None)
         if not return_recv_hook:
             dispatch_t, combine_t = bench_output
