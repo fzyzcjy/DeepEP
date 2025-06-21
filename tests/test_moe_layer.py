@@ -31,27 +31,25 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
     # noinspection PyShadowingNames
-    def large_gemm_with_hook(hook):
+    def large_gemm():
         mat_0 = torch.randn((8192, 8192), dtype=torch.float)
         mat_1 = torch.randn((8192, 8192), dtype=torch.float)
         mat_0 @ mat_1
-        hook()
 
     # noinspection PyShadowingNames
-    def test_func(zero_copy: bool, return_recv_hook: bool):
+    def test_func():
         recv_x, recv_count, handle, event, hook = \
             buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
-                                        # NOTE MODIFIED
-                                        # cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
-                                        use_fp8=True, async_finish=False, return_recv_hook=return_recv_hook)
-        large_gemm_with_hook(hook) if return_recv_hook else None
-        if zero_copy:
-            buffer.get_next_low_latency_combine_buffer(handle)[:, :, :] = simulated_gemm_x
-        combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                                             zero_copy=zero_copy, return_recv_hook=return_recv_hook)
-        large_gemm_with_hook(hook) if return_recv_hook else None
+                                        use_fp8=True, async_finish=False, return_recv_hook=True)
+        large_gemm()
+        hook()
 
-    bench(partial(test_func, zero_copy=False, return_recv_hook=False))
+        combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
+                                                             return_recv_hook=True, async_finish=True)
+        large_gemm()
+        hook()
+
+    bench(test_func)
 
 
 # noinspection PyUnboundLocalVariable
