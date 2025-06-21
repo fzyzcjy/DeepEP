@@ -602,7 +602,7 @@ void combine(void* combined_x,
              int num_topk, int num_experts, int rank, int num_ranks,
              void* workspace, int num_device_sms,
              cudaStream_t stream, int phases, bool zero_copy,
-            uint32_t* src_signals) {
+             uint32_t* src_signals) {
     constexpr int kNumMaxTopk = 9;
 
     const int num_warp_groups = ((phases & LOW_LATENCY_RECV_PHASE) == 0)
