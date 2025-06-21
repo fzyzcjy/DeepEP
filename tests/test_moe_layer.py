@@ -55,7 +55,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     bench_kineto(test_func,
                  kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
                  suppress_kineto_output=True,
-                 trace_path=TODO)
+                 trace_path=os.environ.get("DEEPEP_OUTPUT_TRACE_PATH"))
 
 
 def create_weight_fp8(num_groups, n, k):
