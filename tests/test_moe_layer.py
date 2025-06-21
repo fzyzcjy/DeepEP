@@ -74,7 +74,7 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 def forward_layer(
     *,
-    x,
+    hidden_states,
     w13_weight_fp8,
     w2_weight_fp8,
     buffer,
@@ -83,8 +83,14 @@ def forward_layer(
     num_tokens,
     num_experts,
 ):
+    # src: dispatch_a
+    expected_m = (
+        hidden_states.shape[0] * buffer.group_size * topk_idx.shape[1]
+        + num_experts
+    ) // num_experts
+
     hidden_states_fp8, recv_count, handle, dispatch_event, dispatch_hook = \
-        buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
+        buffer.low_latency_dispatch(hidden_states, topk_idx, num_tokens, num_experts,
                                     use_fp8=True, async_finish=False, return_recv_hook=True)
     assert dispatch_event is None
     large_gemm()
