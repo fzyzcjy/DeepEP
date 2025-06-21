@@ -525,9 +525,12 @@ combine(void* combined_x,
     if ((phases & LOW_LATENCY_RECV_PHASE) == 0)
         return;
 
-    // NOTE HACK MOVED TO HERE
+    // NOTE HACK MOVED AND COPIED TO HERE
     EP_DEVICE_ASSERT(not (((phases & LOW_LATENCY_SEND_PHASE) != 0) and ((phases & LOW_LATENCY_RECV_PHASE) != 0)));
     {
+        const auto local_expert_idx = responsible_expert_idx % num_local_experts;
+        const auto global_expert_idx = rank * num_local_experts + local_expert_idx;
+
         // Put the finishing flag
         EP_DEVICE_ASSERT(num_warps_per_group > 1 and num_warp_groups < 16);
         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
