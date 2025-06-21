@@ -227,7 +227,37 @@ def forward_layer_overlap(
         num_tokens,
         num_experts,
 ):
-    TODO_common
+    down_input, down_input_scale, comm_handle, expected_m, masked_m, num_groups, m = (
+        forward_layer_naive_first_half(
+            hidden_states=hidden_states, w13_weight_fp8=w13_weight_fp8,
+            buffer=buffer, topk_idx=topk_idx, num_tokens=num_tokens, num_experts=num_experts
+        )
+    )
+
+    n = w2_weight_fp8[0].size(1)
+    down_input_fp8 = (down_input, down_input_scale)
+    down_output = torch.empty((num_groups, m, n), device=down_input.device, dtype=torch.bfloat16)
+    
+    deep_gemm.fp8_m_grouped_gemm_nt_masked(
+        down_input_fp8,
+        w2_weight_fp8,
+        down_output,
+        masked_m,
+        expected_m,
+        recipe=(1, 128, 128),
+    )
+
+    combined_x, combine_event, combine_hook = buffer.low_latency_combine(
+        down_output, topk_idx, topk_weights, comm_handle,
+        return_recv_hook=True,
+        async_finish=True, # NOTE
+    )
+    combine_event.current_stream_wait()
+    large_gemm()
+    combine_hook()
+
+    return combined_x
+
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
 
