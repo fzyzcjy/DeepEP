@@ -451,7 +451,12 @@ combine(void* combined_x,
             unpack2(layout, num_tokens_to_send, offset);
 
             // Issue IBGDA send
-            for (int token_idx = offset + sub_warp_id; token_idx < offset + num_tokens_to_send; token_idx += num_warps_per_group) {
+//             for (int token_idx = offset + sub_warp_id; token_idx < offset + num_tokens_to_send; token_idx += num_warps_per_group) {
+            for (
+                int token_idx = offset + sub_warp_id + token_cooperate_part_idx * num_warps_per_group;
+                token_idx < offset + num_tokens_to_send;
+                token_idx += num_warps_per_group * num_token_cooperate_parts
+            ) {
                 const auto x_int4 = local_x + token_idx * hidden_bf16_int4;
                 const auto rdma_send_type_row = reinterpret_cast<int*>(rdma_send_x_vec + token_idx * num_bytes_per_slot);
                 const auto rdma_send_x_vec_row = reinterpret_cast<uint8_t*>(rdma_send_type_row);
