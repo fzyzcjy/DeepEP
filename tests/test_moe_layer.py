@@ -44,8 +44,12 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         large_gemm()
         hook()
 
-        combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                                             return_recv_hook=True, async_finish=True)
+        combined_x, event, hook = buffer.low_latency_combine(
+            simulated_gemm_x, topk_idx, topk_weights, handle,
+            return_recv_hook=True,
+            async_finish=True, # NOTE
+        )
+        event.current_stream_wait()
         large_gemm()
         hook()
 
