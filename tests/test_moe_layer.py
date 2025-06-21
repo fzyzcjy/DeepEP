@@ -35,8 +35,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     for i in range(10):
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
-    w13_weight_fp8 = create_weight_fp8()
-    w2_weight_fp8 = create_weight_fp8()
+    w13_weight_fp8 = create_weight_fp8(num_groups=TODO, n=TODO, k=TODO)
+    w2_weight_fp8 = create_weight_fp8(num_groups=TODO, n=TODO, k=TODO)
 
     # noinspection PyShadowingNames
     def test_func():
