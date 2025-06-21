@@ -1224,7 +1224,7 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
                               num_topk, num_experts, rank, num_ranks,
                               workspace, num_device_sms,
                               launch_stream, phases, zero_copy,
-                              src_signals.has_value() ? src_signals->data_ptr() : nullptr);
+                              src_signals.has_value() ? src_signals->data_ptr<uint32_t>() : nullptr);
     };
     launcher(return_recv_hook ? LOW_LATENCY_SEND_PHASE : (LOW_LATENCY_SEND_PHASE | LOW_LATENCY_RECV_PHASE));
 
