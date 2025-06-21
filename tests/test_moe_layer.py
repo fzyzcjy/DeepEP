@@ -242,13 +242,13 @@ def forward_layer_overlap(
     down_input_fp8 = (down_input, down_input_scale)
     down_output = torch.empty((num_groups, m, n), device=down_input.device, dtype=torch.bfloat16)
 
-    src_signals = torch.zeros(num_local_experts, dtype=torch.uint32, device=down_input.device)
+    src_signal = torch.zeros(num_local_experts, dtype=torch.uint32, device=down_input.device)
 
     combined_x, combine_event, combine_hook = buffer.low_latency_combine(
         down_output, topk_idx, topk_weights, comm_handle,
         return_recv_hook=True,
         async_finish=True, # NOTE
-        src_signals=src_signals,
+        src_signal=src_signal,
     )
 
     for local_expert_idx in range(num_local_experts):
@@ -260,8 +260,8 @@ def forward_layer_overlap(
             expected_m,
             recipe=(1, 128, 128),
         )
-        buffer.notify_src_signals(
-            src_signals=src_signals,
+        buffer.runtime.notify_src_signal(
+            src_signal=src_signal,
             index=local_expert_idx,
         )
 
