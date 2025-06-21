@@ -248,6 +248,7 @@ def forward_layer_overlap(
         down_output, topk_idx, topk_weights, comm_handle,
         return_recv_hook=True,
         async_finish=True, # NOTE
+        src_signals=src_signals,
     )
 
     for local_expert_idx in range(num_local_experts):
@@ -258,6 +259,10 @@ def forward_layer_overlap(
             masked_m,
             expected_m,
             recipe=(1, 128, 128),
+        )
+        buffer.notify_src_signals(
+            src_signals=src_signals,
+            index=local_expert_idx,
         )
 
     combine_event.current_stream_wait()
