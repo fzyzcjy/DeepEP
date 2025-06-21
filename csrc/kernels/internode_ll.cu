@@ -446,10 +446,6 @@ combine(void* combined_x,
 
     // Issue IBGDA sends
     if (responsible_expert_idx < num_experts) {
-        const auto dst_rank = responsible_expert_idx / num_local_experts;
-
-        const auto next_layout = __ldg(layout_range + 0 * num_ranks + dst_rank);
-
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
             if (src_signals != nullptr) {
               if (threadIdx.x == 0) {
@@ -460,14 +456,14 @@ combine(void* combined_x,
               __syncthreads();
             }
 
+            const auto dst_rank = responsible_expert_idx / num_local_experts;
+
 //             const auto local_expert_idx = responsible_expert_idx % num_local_experts;
             const auto token_cooperate_part_idx = responsible_expert_idx % num_local_experts;
             const auto num_token_cooperate_parts = num_local_experts;
 
-            const auto layout = next_layout;
-            next_layout = __ldg(layout_range + (local_expert_idx + 1) * num_ranks + dst_rank);
-
             const auto global_expert_idx = rank * num_local_experts + local_expert_idx;
+            const auto layout = __ldg(layout_range + local_expert_idx * num_ranks + dst_rank);
             const auto local_x = static_cast<const int4*>(x) +
                     local_expert_idx * num_ranks * num_max_dispatch_tokens_per_rank * hidden_bf16_int4;
             const auto local_src_info = src_info + local_expert_idx * num_ranks * num_max_dispatch_tokens_per_rank;
