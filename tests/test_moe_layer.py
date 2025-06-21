@@ -24,6 +24,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     rank_offset = 128
     assert num_ranks - rank_offset < 257, 'Too many ranks (exceeding test precision limit)'
 
+    # TODO change value?
     x = torch.ones((num_tokens, hidden), dtype=torch.bfloat16, device='cuda') * (rank - rank_offset)
     x[:, -128:] = torch.arange(num_tokens, device='cuda').to(torch.bfloat16).view(-1, 1)
     scores = torch.randn((num_tokens, num_experts), dtype=torch.float32, device='cuda').abs() + 1
@@ -36,7 +37,16 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
     # noinspection PyShadowingNames
     def test_func():
-        TODO
+        forward_layer(
+            hidden_states=x,
+            w13_weight_fp8=w13_weight_fp8,
+            w2_weight_fp8=w2_weight_fp8,
+            buffer=buffer,
+            topk_idx=topk_idx,
+            topk_weights=topk_weights,
+            num_tokens=num_tokens,
+            num_experts=num_experts,
+        )
 
     bench(test_func)
 
@@ -167,6 +177,8 @@ def forward_layer(
     combine_event.current_stream_wait()
     large_gemm()
     combine_hook()
+
+    return combined_x
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
 
