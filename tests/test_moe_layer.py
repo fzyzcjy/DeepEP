@@ -38,20 +38,21 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
     # noinspection PyShadowingNames
     def test_func():
-        recv_x, recv_count, handle, event, hook = \
+        recv_x, recv_count, handle, dispatch_event, dispatch_hook = \
             buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
                                         use_fp8=True, async_finish=False, return_recv_hook=True)
+        assert dispatch_event is None
         large_gemm()
-        hook()
+        dispatch_hook()
 
-        combined_x, event, hook = buffer.low_latency_combine(
+        combined_x, combine_event, combine_hook = buffer.low_latency_combine(
             simulated_gemm_x, topk_idx, topk_weights, handle,
             return_recv_hook=True,
             async_finish=True, # NOTE
         )
-        event.current_stream_wait()
+        combine_event.current_stream_wait()
         large_gemm()
-        hook()
+        combine_hook()
 
     bench(test_func)
 
