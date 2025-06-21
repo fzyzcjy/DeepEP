@@ -109,7 +109,7 @@ def forward_layer_naive(
     num_tokens,
     num_experts,
 ):
-    down_input, down_input_scale = forward_layer_naive_first_half(
+    down_input, down_input_scale, comm_handle = forward_layer_naive_first_half(
         hidden_states=hidden_states, w13_weight_fp8=w13_weight_fp8,
         buffer=buffer, topk_idx=topk_idx, num_tokens=num_tokens, num_experts=num_experts
     )
@@ -130,7 +130,7 @@ def forward_layer_naive(
     )
 
     combined_x, combine_event, combine_hook = buffer.low_latency_combine(
-        down_output, topk_idx, topk_weights, handle,
+        down_output, topk_idx, topk_weights, comm_handle,
         return_recv_hook=True,
         async_finish=True, # NOTE
     )
@@ -139,6 +139,9 @@ def forward_layer_naive(
     combine_hook()
 
     return combined_x
+
+def forward_layer_naive_common_info():
+
 
 def forward_layer_naive_first_half(
         *,
@@ -155,7 +158,7 @@ def forward_layer_naive_first_half(
     # src: dispatch_a
     expected_m = (hidden_states.shape[0] * buffer.group_size * topk_idx.shape[1] + num_experts) // num_experts
 
-    hidden_states_fp8, recv_count, handle, dispatch_event, dispatch_hook = buffer.low_latency_dispatch(
+    hidden_states_fp8, recv_count, comm_handle, dispatch_event, dispatch_hook = buffer.low_latency_dispatch(
         hidden_states, topk_idx, num_tokens, num_experts,
         use_fp8=True, async_finish=False, return_recv_hook=True,
         round_scale=True, use_ue8m0=True,
@@ -212,7 +215,7 @@ def forward_layer_naive_first_half(
     )
     del gateup_output
 
-    return down_input, down_input_scale
+    return down_input, down_input_scale, comm_handle
 
 def forward_layer_overlap(
         *,
