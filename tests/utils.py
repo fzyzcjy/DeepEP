@@ -221,6 +221,7 @@ def extract_detail_times_from_prof(prof, kernel_names, duplicate_name_period: in
         events = sorted(events, key=lambda e: e["ts"])
         durations = [e["dur"] / 1e6 for e in events]
         print(f"extract_detail_times_from_prof {kernel_name=} {durations=} {events=}")
+        assert len(durations) % duplicate_name_period == 0, f"{len(durations)=} {duplicate_name_period=}"
         ans[kernel_name] = [list_mean(durations[i::duplicate_name_period]) for i in range(duplicate_name_period)]
     return ans
 
