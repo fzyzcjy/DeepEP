@@ -448,7 +448,7 @@ combine(void* combined_x,
     if (responsible_expert_idx < num_experts) {
         const auto dst_rank = responsible_expert_idx / num_local_experts;
 
-        const auto next_layout = __ldg(layout_range + 0 * num_ranks + dst_rank);
+        auto next_layout = __ldg(layout_range + 0 * num_ranks + dst_rank);
 
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
             if (src_signals != nullptr) {
