@@ -408,7 +408,8 @@ combine(void* combined_x,
         int num_max_dispatch_tokens_per_rank,
         int num_experts, int rank, int num_ranks,
         int num_warp_groups, int num_warps_per_group,
-        int phases, bool zero_copy) {
+        int phases, bool zero_copy,
+        uint32_t* src_signals) {
     const auto sm_id = static_cast<int>(blockIdx.x);
     const auto num_sms = static_cast<int>(gridDim.x);
     const auto thread_id = static_cast<int>(threadIdx.x);
@@ -446,6 +447,14 @@ combine(void* combined_x,
     // Issue IBGDA sends
     if (responsible_expert_idx < num_experts) {
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
+            if (src_signals != nullptr) {
+              if (TODO == 0) {
+                wait_signal(src_signals + local_expert_idx);
+              }
+
+              TODO_barrier;
+            }
+
             const auto dst_rank = responsible_expert_idx / num_local_experts;
 
 //             const auto local_expert_idx = responsible_expert_idx % num_local_experts;
@@ -592,7 +601,8 @@ void combine(void* combined_x,
              int num_combined_tokens, int hidden, int num_max_dispatch_tokens_per_rank,
              int num_topk, int num_experts, int rank, int num_ranks,
              void* workspace, int num_device_sms,
-             cudaStream_t stream, int phases, bool zero_copy) {
+             cudaStream_t stream, int phases, bool zero_copy,
+            uint32_t* src_signals) {
     constexpr int kNumMaxTopk = 9;
 
     const int num_warp_groups = ((phases & LOW_LATENCY_RECV_PHASE) == 0)
@@ -622,7 +632,7 @@ LAUNCH_KERNEL(&cfg, combine_func, \
               num_max_dispatch_tokens_per_rank, \
               num_experts, rank, num_ranks, \
               num_warp_groups, num_warps_per_group, \
-              phases, zero_copy); } break
+              phases, zero_copy, src_signals); } break
 
     SETUP_LAUNCH_CONFIG(num_sms, num_warps * 32, stream);
     SWITCH_HIDDEN(COMBINE_LAUNCH_CASE);
