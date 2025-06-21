@@ -6,6 +6,7 @@ import torch.distributed as dist
 from functools import partial
 
 import deep_gemm
+from deep_gemm.utils.math import align, ceil_div, per_block_cast_to_fp8
 import deep_ep
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
 from sglang.srt.layers.moe.ep_moe.kernels import silu_and_mul_masked_post_quant_fwd
@@ -34,8 +35,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     for i in range(10):
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
-    w13_weight_fp8 = TODO
-    w2_weight_fp8 = TODO
+    w13_weight_fp8 = create_weight_fp8()
+    w2_weight_fp8 = create_weight_fp8()
 
     # noinspection PyShadowingNames
     def test_func():
@@ -51,6 +52,15 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         )
 
     bench(test_func)
+
+
+def create_weight_fp8(num_groups, n, k):
+    # ref: DeepGEMM - generate_grouped_masked
+    b = torch.randn((num_groups, n, k), device='cuda', dtype=torch.bfloat16)
+    b_fp8 = (torch.empty_like(b, dtype=torch.float8_e4m3fn), torch.empty((num_groups, ceil_div(n, 128), ceil_div(k, 128)), device='cuda', dtype=torch.float))
+    for i in range(num_groups):
+        b_fp8[0][i], b_fp8[1][i] = per_block_cast_to_fp8(b[i])
+    return b_fp8
 
 
 # noinspection PyShadowingNames
