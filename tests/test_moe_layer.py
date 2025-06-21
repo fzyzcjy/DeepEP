@@ -71,7 +71,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         print(f"Execute bench {fn_mode=} {rank=} {trace_path=}")
         bench_kineto(partial(test_func, fn_mode=fn_mode),
                      kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
-                     suppress_kineto_output=True,
+                     suppress_kineto_output=False, # NOTE MODIFIED
                      trace_path=trace_path)
 
 
