@@ -467,6 +467,32 @@ combine(void* combined_x,
             }
         }
 
+// NOTE MOVED
+//         // Put the finishing flag
+//         EP_DEVICE_ASSERT(num_warps_per_group > 1 and num_warp_groups < 16);
+//         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
+//         if (sub_warp_id == 1 and lane_id == 0) {
+//             while (ld_acquire_global(atomic_clean_flag) == 0);
+//             auto dst_ptr = reinterpret_cast<uint64_t>(rdma_recv_flag + global_expert_idx);
+//             auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, dst_rank);
+//             if (dst_p2p_ptr == 0) {
+//                 nvshmemi_ibgda_amo_nonfetch_add(reinterpret_cast<int*>(dst_ptr), 1, dst_rank, local_expert_idx);
+//             } else {
+//                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), 1);
+//             }
+//             atomic_add_release_global(atomic_clean_flag, -1);
+//         }
+//         __syncwarp();
+    }
+
+    // Receiving phase
+    LOW_LATENCY_COMBINE_RECV:
+    if ((phases & LOW_LATENCY_RECV_PHASE) == 0)
+        return;
+
+    // NOTE HACK MOVED TO HERE
+    EP_DEVICE_ASSERT(not (((phases & LOW_LATENCY_SEND_PHASE) != 0) and ((phases & LOW_LATENCY_RECV_PHASE) != 0)));
+    {
         // Put the finishing flag
         EP_DEVICE_ASSERT(num_warps_per_group > 1 and num_warp_groups < 16);
         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
@@ -483,11 +509,6 @@ combine(void* combined_x,
         }
         __syncwarp();
     }
-
-    // Receiving phase
-    LOW_LATENCY_COMBINE_RECV:
-    if ((phases & LOW_LATENCY_RECV_PHASE) == 0)
-        return;
 
     // Wait all ranks to arrive
     if (responsible_expert_idx < num_experts) {
