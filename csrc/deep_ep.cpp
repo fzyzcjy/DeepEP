@@ -1160,7 +1160,7 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
                             int num_max_dispatch_tokens_per_rank, int num_experts,
                             bool zero_copy, bool async, bool return_recv_hook,
                             const std::optional<torch::Tensor>& out,
-                            const std::optional<torch.Tensor>& src_signals) {
+                            const std::optional<torch::Tensor>& src_signals) {
 #ifndef DISABLE_NVSHMEM
     EP_HOST_ASSERT(low_latency_mode);
 
@@ -1251,7 +1251,7 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
 #endif
 }
 
-void Buffer::notify_src_signals(const std::optional<torch.Tensor>& src_signals, int index) {
+void Buffer::notify_src_signals(const std::optional<torch::Tensor>& src_signals, int index) {
     const uint32_t* addr = src_signals.data_ptr<uint32_t>() + index;
     cuStreamWriteValue32(comm_stream, addr, 1, 0);
 }

@@ -145,9 +145,9 @@ public:
                         int num_max_dispatch_tokens_per_rank, int num_experts,
                         bool zero_copy, bool async, bool return_recv_hook,
                         const std::optional<torch::Tensor>& out = std::nullopt,
-                        const std::optional<torch.Tensor>& src_signals = std::nullopt);
+                        const std::optional<torch::Tensor>& src_signals = std::nullopt);
 
-    void Buffer::notify_src_signals(const std::optional<torch.Tensor>& src_signals, int index);
+    void Buffer::notify_src_signals(const std::optional<torch::Tensor>& src_signals, int index);
 
     torch::Tensor
     get_next_low_latency_combine_buffer(int num_max_dispatch_tokens_per_rank, int hidden, int num_experts) const;
