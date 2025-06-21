@@ -433,7 +433,11 @@ combine(void* combined_x,
     if (responsible_expert_idx < num_experts) {
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
             const auto dst_rank = responsible_expert_idx / num_local_experts;
+
 //             const auto local_expert_idx = responsible_expert_idx % num_local_experts;
+            const auto token_cooperate_part_idx = responsible_expert_idx % num_local_experts;
+            const auto num_token_cooperate_parts = num_local_experts;
+
             const auto global_expert_idx = rank * num_local_experts + local_expert_idx;
             const auto layout = __ldg(layout_range + local_expert_idx * num_ranks + dst_rank);
             const auto local_x = static_cast<const int4*>(x) +
