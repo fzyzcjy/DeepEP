@@ -1,6 +1,9 @@
 import json
 import os
 import random
+import time
+from pathlib import Path
+
 import torch
 import torch.distributed as dist
 from functools import partial
@@ -61,11 +64,15 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         )
 
     for fn_mode in ['naive', 'overlap']:
-        print(f"Execute bench {fn_mode=}")
+        if rank == 0:
+            trace_path = str(Path("/data/numa0/tom/temp_sglang_server2local/") / f"{time.time()}-TP-{rank}.trace.json.gz")
+        else:
+            trace_path = None
+        print(f"Execute bench {fn_mode=} {rank=} {trace_path=}")
         bench_kineto(partial(test_func, fn_mode=fn_mode),
                      kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
                      suppress_kineto_output=True,
-                     trace_path=os.environ.get("DEEPEP_OUTPUT_TRACE_PATH"))
+                     trace_path=trace_path)
 
 
 def create_weight_fp8(num_groups, n, k):
