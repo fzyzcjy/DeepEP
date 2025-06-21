@@ -242,16 +242,7 @@ def forward_deepgemm_masked(
 
     # GroupGemm-1
     n = self.w2_weight.size(1)
-    down_input_fp8 = (
-        down_input,
-        (
-            down_input_scale
-            if deep_gemm_wrapper.DEEPGEMM_SCALE_UE8M0
-            else deep_gemm_wrapper.get_col_major_tma_aligned_tensor(
-                down_input_scale
-            )
-        ),
-    )
+    down_input_fp8 = (down_input, down_input_scale)
     down_output = torch.empty(
         (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
     )
@@ -261,10 +252,12 @@ def forward_deepgemm_masked(
         down_output,
         masked_m,
         expected_m,
-        recipe=(1, 128, 128) if deep_gemm_wrapper.DEEPGEMM_BLACKWELL else None,
+        recipe=(1, 128, 128),
     )
 
     return down_output
+
+# --------------------------------------------- SGLANG -----------------------------------------------------
 
 
 if __name__ == '__main__':
