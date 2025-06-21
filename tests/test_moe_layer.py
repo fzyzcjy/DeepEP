@@ -254,7 +254,7 @@ def forward_layer_overlap(
         deep_gemm.fp8_m_grouped_gemm_nt_masked(
             _pick_expert_fp8(down_input_fp8, local_expert_idx=local_expert_idx),
             _pick_expert_fp8(w2_weight_fp8, local_expert_idx=local_expert_idx),
-            down_output,
+            _pick_expert_fp8(down_output, local_expert_idx=local_expert_idx),
             masked_m,
             expected_m,
             recipe=(1, 128, 128),
