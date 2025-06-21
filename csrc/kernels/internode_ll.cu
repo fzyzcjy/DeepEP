@@ -448,11 +448,12 @@ combine(void* combined_x,
     if (responsible_expert_idx < num_experts) {
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
             if (src_signals != nullptr) {
-              if (TODO == 0) {
+              if (threadIdx.x == 0) {
                 wait_signal(src_signals + local_expert_idx);
               }
 
-              TODO_barrier;
+              // TODO original code uses NamedBarrier, better than this?
+              __syncthreads();
             }
 
             const auto dst_rank = responsible_expert_idx / num_local_experts;
