@@ -142,6 +142,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
           f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
+    output_data = {}
+
     # Separate profiling
     for return_recv_hook in (False, True):
         group.barrier()
@@ -171,16 +173,17 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             print(f'[rank {rank}] Dispatch send/recv time: {data["dispatch_t_us"] :.2f} = {data["dispatch_send_t_us"] :.2f} + {data["dispatch_recv_t_us"] :.2f} us | '
                   f'Combine send/recv time: {data["combine_t_us"] :.2f} = {data["combine_send_t_us"] :.2f} + {data["combine_recv_t_us"] :.2f} us', flush=True)
 
-        print('MAIN_OUTPUT=' + json.dumps(dict(
-            rank=rank,
-            num_tokens=num_tokens,
-            hidden=hidden,
-            num_experts=num_experts,
-            num_topk=num_topk,
-            num_ranks=num_ranks,
-            return_recv_hook=return_recv_hook,
-            **data,
-        )))
+        output_data |= {("hook_" if return_recv_hook else "std_") + k: v for k, v in data.items()}
+
+    print('MAIN_OUTPUT=' + json.dumps(dict(
+        rank=rank,
+        num_tokens=num_tokens,
+        hidden=hidden,
+        num_experts=num_experts,
+        num_topk=num_topk,
+        num_ranks=num_ranks,
+        **output_data,
+    )))
 
     return hash_value
 
@@ -188,7 +191,11 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 # noinspection PyUnboundLocalVariable
 def test_loop(local_rank: int, num_local_ranks: int):
     rank, num_ranks, group = init_dist(local_rank, num_local_ranks)
-    num_tokens, hidden, num_topk, num_experts = 128, 7168, 8, 288
+    # num_tokens, hidden, num_topk, num_experts = 4096, 7168, 8, (256 // num_ranks) * num_ranks
+    num_tokens = int(os.environ.get("DEEPEP_TEST_NUM_TOKENS", "4096"))
+    hidden = int(os.environ.get("DEEPEP_TEST_HIDDEN", "7168"))
+    num_topk = int(os.environ.get("DEEPEP_TEST_NUM_TOPK", "8"))
+    num_experts = int(os.environ.get("DEEPEP_TEST_NUM_EXPERTS", str((256 // num_ranks) * num_ranks)))
 
     num_rdma_bytes = deep_ep.Buffer.get_low_latency_rdma_size_hint(num_tokens, hidden, num_ranks, num_experts)
     if local_rank == 0:
