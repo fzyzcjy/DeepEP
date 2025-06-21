@@ -548,7 +548,11 @@ void combine(void* combined_x,
              void* workspace, int num_device_sms,
              cudaStream_t stream, int phases, bool zero_copy) {
     constexpr int kNumMaxTopk = 9;
-    const int num_warp_groups = ceil_div(num_experts, num_device_sms);
+
+    const int num_warp_groups = ((phases & LOW_LATENCY_RECV_PHASE) == 0)
+        ? 9
+        : ceil_div(num_experts, num_device_sms);
+
     const int num_warps_per_group = 32 / num_warp_groups;
     EP_HOST_ASSERT(num_warp_groups > 0 and num_warps_per_group > 0);
 
