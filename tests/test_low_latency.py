@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import torch
@@ -31,7 +32,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
     # Check dispatch correctness
-    do_check = True
+    do_check = bool(int(os.environ.get("DEEPEP_HACK_DO_CHECK", "1")))
     hash_value, num_times = 0, 0
     for return_recv_hook in (False, True):
         for dispatch_use_fp8 in (False, True):
@@ -156,6 +157,22 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t * 2 * 1e6:.2f} = {detail_times["dispatch"][0] * 1e6:.2f} + {detail_times["dispatch"][1] * 1e6:.2f} us | '
                   f'Combine send/recv time: {combine_t * 2 * 1e6:.2f} = {detail_times["combine"][0] * 1e6:.2f} + {detail_times["combine"][1] * 1e6:.2f} us', flush=True)
 
+        print('MAIN_OUTPUT=' + json.dumps(dict(
+            rank=rank,
+            num_tokens=num_tokens,
+            hidden=hidden,
+            num_experts=num_experts,
+            num_topk=num_topk,
+            num_ranks=num_ranks,
+
+            return_recv_hook=return_recv_hook,
+
+            num_dispatch_comm_bytes=num_dispatch_comm_bytes,
+            num_combine_comm_bytes=num_combine_comm_bytes,
+            dispatch_t=dispatch_t,
+            combine_t=combine_t,
+        )))
+
     return hash_value
 
 
@@ -168,7 +185,8 @@ def test_loop(local_rank: int, num_local_ranks: int):
     if local_rank == 0:
         print(f'Allocating buffer size: {num_rdma_bytes / 1e6} MB ...', flush=True)
     buffer = deep_ep.Buffer(group, num_rdma_bytes=num_rdma_bytes, low_latency_mode=True,
-                            num_qps_per_rank=num_experts // num_ranks)
+                            num_qps_per_rank=num_experts // num_ranks,
+                            allow_mnnvl=bool(int(os.environ.get("DEEPEP_TEST_ALLOW_MNNVL", "0"))))
     test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer, seed=1)
 
     do_pressure_test = False
