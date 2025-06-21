@@ -83,6 +83,9 @@ def forward_layer(
     num_tokens,
     num_experts,
 ):
+    # src: EPMoE
+    fp8_dtype = torch.float8_e4m3fn
+
     # src: dispatch_a
     expected_m = (hidden_states.shape[0] * buffer.group_size * topk_idx.shape[1] + num_experts) // num_experts
 
