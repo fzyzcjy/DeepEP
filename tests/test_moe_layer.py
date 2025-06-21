@@ -41,7 +41,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
     # noinspection PyShadowingNames
     def test_func():
-        forward_layer(
+        forward_layer_naive(
             hidden_states=x,
             w13_weight_fp8=w13_weight_fp8,
             w2_weight_fp8=w2_weight_fp8,
@@ -98,7 +98,7 @@ def test_loop(local_rank: int, num_local_ranks: int):
 # --------------------------------------------- layer -----------------------------------------------------
 
 
-def forward_layer(
+def forward_layer_naive(
     *,
     hidden_states,
     w13_weight_fp8,
@@ -108,6 +108,46 @@ def forward_layer(
     topk_weights,
     num_tokens,
     num_experts,
+):
+    down_input, down_input_scale = forward_layer_naive_first_half(
+        hidden_states=hidden_states, w13_weight_fp8=w13_weight_fp8,
+        buffer=buffer, topk_idx=topk_idx, num_tokens=num_tokens, num_experts=num_experts
+    )
+
+    # GroupGemm-1
+    n = w2_weight_fp8[0].size(1)
+    down_input_fp8 = (down_input, down_input_scale)
+    down_output = torch.empty(
+        (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
+    )
+    deep_gemm.fp8_m_grouped_gemm_nt_masked(
+        down_input_fp8,
+        w2_weight_fp8,
+        down_output,
+        masked_m,
+        expected_m,
+        recipe=(1, 128, 128),
+    )
+
+    combined_x, combine_event, combine_hook = buffer.low_latency_combine(
+        down_output, topk_idx, topk_weights, handle,
+        return_recv_hook=True,
+        async_finish=True, # NOTE
+    )
+    combine_event.current_stream_wait()
+    large_gemm()
+    combine_hook()
+
+    return combined_x
+
+def forward_layer_naive_first_half(
+        *,
+        hidden_states,
+        w13_weight_fp8,
+        buffer,
+        topk_idx,
+        num_tokens,
+        num_experts,
 ):
     # src: EPMoE
     fp8_dtype = torch.float8_e4m3fn
@@ -172,31 +212,20 @@ def forward_layer(
     )
     del gateup_output
 
-    # GroupGemm-1
-    n = w2_weight_fp8[0].size(1)
-    down_input_fp8 = (down_input, down_input_scale)
-    down_output = torch.empty(
-        (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
-    )
-    deep_gemm.fp8_m_grouped_gemm_nt_masked(
-        down_input_fp8,
+    return down_input, down_input_scale
+
+def forward_layer_overlap(
+        *,
+        hidden_states,
+        w13_weight_fp8,
         w2_weight_fp8,
-        down_output,
-        masked_m,
-        expected_m,
-        recipe=(1, 128, 128),
-    )
-
-    combined_x, combine_event, combine_hook = buffer.low_latency_combine(
-        down_output, topk_idx, topk_weights, handle,
-        return_recv_hook=True,
-        async_finish=True, # NOTE
-    )
-    combine_event.current_stream_wait()
-    large_gemm()
-    combine_hook()
-
-    return combined_x
+        buffer,
+        topk_idx,
+        topk_weights,
+        num_tokens,
+        num_experts,
+):
+    TODO_common
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
 
