@@ -476,10 +476,17 @@ combine(void* combined_x,
 
             // Issue IBGDA send
 //             for (int token_idx = offset + sub_warp_id; token_idx < offset + num_tokens_to_send; token_idx += num_warps_per_group) {
+//             for (
+//                 int token_idx = offset + sub_warp_id + token_cooperate_part_idx * num_warps_per_group;
+//                 token_idx < offset + num_tokens_to_send;
+//                 token_idx += num_warps_per_group * num_token_cooperate_parts
+//             ) {
+            const int num_tokens_to_send_per_cooperate_part = ceil_div(num_tokens_to_send, num_token_cooperate_parts);
+            const int token_idx_part_end = offset + min(num_tokens_to_send, num_tokens_to_send_per_cooperate_part * (token_cooperate_part_idx + 1));
             for (
-                int token_idx = offset + sub_warp_id + token_cooperate_part_idx * num_warps_per_group;
-                token_idx < offset + num_tokens_to_send;
-                token_idx += num_warps_per_group * num_token_cooperate_parts
+                int token_idx = offset + num_tokens_to_send_per_cooperate_part * token_cooperate_part_idx + sub_warp_id;
+                token_idx < token_idx_part_end;
+                token_idx += num_warps_per_group
             ) {
                 const auto x_int4 = local_x + token_idx * hidden_bf16_int4;
                 const auto rdma_send_type_row = reinterpret_cast<int*>(rdma_send_x_vec + token_idx * num_bytes_per_slot);
