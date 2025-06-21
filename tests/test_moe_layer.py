@@ -40,8 +40,15 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     w2_weight_fp8 = create_weight_fp8(num_groups=num_local_experts, n=hidden, k=2048)
 
     # noinspection PyShadowingNames
-    def test_func():
-        forward_layer_naive(
+    def test_func(fn_mode: str):
+        if fn_mode == 'naive':
+            f = forward_layer_naive
+        elif fn_mode == 'overlap':
+            f = forward_layer_overlap
+        else:
+            raise NotImplementedError
+
+        f(
             hidden_states=x,
             w13_weight_fp8=w13_weight_fp8,
             w2_weight_fp8=w2_weight_fp8,
@@ -52,12 +59,13 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             num_experts=num_experts,
             num_local_experts=num_local_experts,
         )
-        TODO_call_new
 
-    bench_kineto(test_func,
-                 kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
-                 suppress_kineto_output=True,
-                 trace_path=os.environ.get("DEEPEP_OUTPUT_TRACE_PATH"))
+    for fn_mode in ['naive', 'overlap']:
+        print(f"Execute bench {fn_mode=}")
+        bench_kineto(partial(test_func, fn_mode=fn_mode),
+                     kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
+                     suppress_kineto_output=True,
+                     trace_path=os.environ.get("DEEPEP_OUTPUT_TRACE_PATH"))
 
 
 def create_weight_fp8(num_groups, n, k):
