@@ -5,6 +5,7 @@ import torch
 import torch.distributed as dist
 from functools import partial
 
+import deep_gemm
 import deep_ep
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
 
@@ -94,7 +95,7 @@ def forward_layer(
     gateup_output = torch.empty(
         (num_groups, m, n), device=hidden_states_fp8[0].device, dtype=torch.bfloat16
     )
-    deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_masked(
+    deep_gemm.fp8_m_grouped_gemm_nt_masked(
         hidden_states_fp8,
         w13_weight_fp8,
         gateup_output,
@@ -139,7 +140,7 @@ def forward_layer(
     down_output = torch.empty(
         (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
     )
-    deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_masked(
+    deep_gemm.fp8_m_grouped_gemm_nt_masked(
         down_input_fp8,
         w2_weight_fp8,
         down_output,
