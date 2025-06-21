@@ -22,6 +22,9 @@ if __name__ == '__main__':
     # NOTE MODIFIED
     extra_link_args = ['-lcuda']
 
+    # NOTE MODIFIED
+    nvcc_flags += ['-lineinfo']
+
     # NVSHMEM flags
     if disable_nvshmem:
         cxx_flags.append('-DDISABLE_NVSHMEM')
