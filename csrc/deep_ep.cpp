@@ -1251,6 +1251,10 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
 #endif
 }
 
+void Buffer::notify_src_signals(const std::optional<torch.Tensor>& src_signals, int index) {
+    TODO;
+}
+
 torch::Tensor
 Buffer::get_next_low_latency_combine_buffer(int num_max_dispatch_tokens_per_rank, int hidden, int num_experts) const {
 #ifndef DISABLE_NVSHMEM
@@ -1316,6 +1320,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("clean_low_latency_buffer", &deep_ep::Buffer::clean_low_latency_buffer)
         .def("low_latency_dispatch", &deep_ep::Buffer::low_latency_dispatch)
         .def("low_latency_combine", &deep_ep::Buffer::low_latency_combine)
+        .def("notify_src_signals", &deep_ep::Buffer::notify_src_signals)
         .def("get_next_low_latency_combine_buffer", &deep_ep::Buffer::get_next_low_latency_combine_buffer);
 
     m.def("is_sm90_compiled", deep_ep::is_sm90_compiled);
