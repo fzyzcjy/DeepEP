@@ -1224,7 +1224,7 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
                               num_topk, num_experts, rank, num_ranks,
                               workspace, num_device_sms,
                               launch_stream, phases, zero_copy,
-                              src_signals.has_value() ? src_signals.data_ptr() : nullptr);
+                              src_signals.has_value() ? src_signals->data_ptr() : nullptr);
     };
     launcher(return_recv_hook ? LOW_LATENCY_SEND_PHASE : (LOW_LATENCY_SEND_PHASE | LOW_LATENCY_RECV_PHASE));
 
@@ -1251,9 +1251,9 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
 #endif
 }
 
-void Buffer::notify_src_signals(const std::optional<torch::Tensor>& src_signals, int index) {
+void Buffer::notify_src_signals(const torch::Tensor& src_signals, int index) {
     const uint32_t* addr = src_signals.data_ptr<uint32_t>() + index;
-    cuStreamWriteValue32(comm_stream, addr, 1, 0);
+    cuStreamWriteValue32(comm_stream, (CUdeviceptr) addr, 1, 0);
 }
 
 torch::Tensor
