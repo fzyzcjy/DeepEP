@@ -50,7 +50,9 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             topk_weights=topk_weights,
             num_tokens=num_tokens,
             num_experts=num_experts,
+            num_local_experts=num_local_experts,
         )
+        TODO_call_new
 
     bench_kineto(test_func,
                  kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
@@ -108,6 +110,7 @@ def forward_layer_naive(
     topk_weights,
     num_tokens,
     num_experts,
+    num_local_experts,
 ):
     down_input, down_input_scale, comm_handle, expected_m, masked_m, num_groups, m = (
         forward_layer_naive_first_half(
@@ -226,6 +229,7 @@ def forward_layer_overlap(
         topk_weights,
         num_tokens,
         num_experts,
+        num_local_experts,
 ):
     down_input, down_input_scale, comm_handle, expected_m, masked_m, num_groups, m = (
         forward_layer_naive_first_half(
@@ -237,7 +241,9 @@ def forward_layer_overlap(
     n = w2_weight_fp8[0].size(1)
     down_input_fp8 = (down_input, down_input_scale)
     down_output = torch.empty((num_groups, m, n), device=down_input.device, dtype=torch.bfloat16)
-    
+
+    src_signals = torch.zeros(num_local_experts, dtype=torch.uint32, device=down_input.device)
+
     deep_gemm.fp8_m_grouped_gemm_nt_masked(
         down_input_fp8,
         w2_weight_fp8,
