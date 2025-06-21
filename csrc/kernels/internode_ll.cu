@@ -447,15 +447,6 @@ combine(void* combined_x,
     // Issue IBGDA sends
     if (responsible_expert_idx < num_experts) {
         for (int local_expert_idx = 0; local_expert_idx < num_local_experts; ++local_expert_idx) {
-            if (src_signals != nullptr) {
-              if (threadIdx.x == 0) {
-                wait_signal(src_signals + local_expert_idx);
-              }
-
-              // TODO original code uses NamedBarrier, better than this?
-              __syncthreads();
-            }
-
             const auto dst_rank = responsible_expert_idx / num_local_experts;
 
 //             const auto local_expert_idx = responsible_expert_idx % num_local_experts;
@@ -473,6 +464,15 @@ combine(void* combined_x,
             // Unpack layout
             int offset, num_tokens_to_send;
             unpack2(layout, num_tokens_to_send, offset);
+
+            if (src_signals != nullptr) {
+              if (threadIdx.x == 0) {
+                wait_signal(src_signals + local_expert_idx);
+              }
+
+              // TODO original code uses NamedBarrier, better than this?
+              __syncthreads();
+            }
 
             // Issue IBGDA send
 //             for (int token_idx = offset + sub_warp_id; token_idx < offset + num_tokens_to_send; token_idx += num_warps_per_group) {
