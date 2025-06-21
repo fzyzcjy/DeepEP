@@ -82,109 +82,8 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 # --------------------------------------------- layer -----------------------------------------------------
 
-def forward_layer():
-    hidden_states_fp8, hidden_states_scale = hidden_states_fp8
-    assert self.quant_method is not None
-    assert self.activation == "silu"
-    if num_recv_tokens_per_expert is None:
-        return hidden_states_fp8.bfloat16()
-    all_tokens = sum(num_recv_tokens_per_expert)
-    if all_tokens <= 0:
-        return hidden_states_fp8.bfloat16()
-    M, K = hidden_states_fp8.size()
-    N = self.w13_weight.size(1)
-    scale_block_size = 128
 
-    hidden_states_fp8_shape = hidden_states_fp8.shape
-    hidden_states_fp8_device = hidden_states_fp8.device
-    hidden_states_fp8_dtype = hidden_states_fp8.dtype
-
-    input_tensor = [
-        torch.empty(
-            (all_tokens, K),
-            device=hidden_states_fp8.device,
-            dtype=hidden_states_fp8.dtype,
-        ),
-        torch.empty(
-            (all_tokens, K // 128),
-            device=hidden_states_fp8.device,
-            dtype=torch.float32,
-        ),
-    ]
-    m_indices = torch.empty(
-        all_tokens, device=hidden_states_fp8.device, dtype=torch.int32
-    )
-    output_index = torch.empty_like(topk_idx)
-
-    num_recv_tokens_per_expert_gpu = torch.tensor(
-        num_recv_tokens_per_expert,
-        dtype=torch.int32,
-        pin_memory=True,
-        device="cpu",
-    ).cuda(non_blocking=True)
-    expert_start_loc = torch.empty_like(num_recv_tokens_per_expert_gpu)
-
-    ep_scatter(
-        hidden_states_fp8,
-        hidden_states_scale,
-        topk_idx,
-        num_recv_tokens_per_expert_gpu,
-        expert_start_loc,
-        input_tensor[0],
-        input_tensor[1],
-        m_indices,
-        output_index,
-    )
-    dispose_tensor(hidden_states_fp8)
-
-    gateup_output = torch.empty(
-        (all_tokens, N),
-        device=hidden_states_fp8_device,
-        dtype=torch.bfloat16,
-    )
-    input_tensor[1] = tma_align_input_scale(input_tensor[1])
-    deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_contig(
-        input_tensor, self.w13_weight_fp8, gateup_output, m_indices
-    )
-    del input_tensor
-    down_input = torch.empty(
-        (
-            all_tokens,
-            N // 2,
-        ),
-        device=gateup_output.device,
-        dtype=torch.bfloat16,
-    )
-    silu_and_mul(gateup_output.view(-1, N), down_input)
-    del gateup_output
-    down_output = torch.empty(
-        (all_tokens, K),
-        device=hidden_states_fp8_device,
-        dtype=torch.bfloat16,
-    )
-    down_input_fp8, down_input_scale = sglang_per_token_group_quant_fp8(
-        down_input, scale_block_size
-    )
-    del down_input
-    down_input_scale = tma_align_input_scale(down_input_scale)
-    deep_gemm_wrapper.grouped_gemm_nt_f8f8bf16_contig(
-        (down_input_fp8, down_input_scale),
-        self.w2_weight_fp8,
-        down_output,
-        m_indices,
-    )
-    del down_input_fp8, down_input_scale
-
-    gather_out = torch.empty(
-        hidden_states_fp8_shape,
-        device=hidden_states_fp8_device,
-        dtype=torch.bfloat16,
-    )
-    ep_gather(down_output, topk_idx, topk_weights, output_index, gather_out)
-
-    return gather_out
-
-def forward_deepgemm_masked(
+def forward_layer(
         self,
         hidden_states_fp8: Tuple[torch.Tensor, torch.Tensor],
         masked_m: torch.Tensor,
@@ -242,7 +141,16 @@ def forward_deepgemm_masked(
 
     # GroupGemm-1
     n = self.w2_weight.size(1)
-    down_input_fp8 = (down_input, down_input_scale)
+    down_input_fp8 = (
+        down_input,
+        (
+            down_input_scale
+            if deep_gemm_wrapper.DEEPGEMM_SCALE_UE8M0
+            else deep_gemm_wrapper.get_col_major_tma_aligned_tensor(
+                down_input_scale
+            )
+        ),
+    )
     down_output = torch.empty(
         (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
     )
@@ -252,7 +160,7 @@ def forward_deepgemm_masked(
         down_output,
         masked_m,
         expected_m,
-        recipe=(1, 128, 128),
+        recipe=(1, 128, 128) if deep_gemm_wrapper.DEEPGEMM_BLACKWELL else None,
     )
 
     return down_output
