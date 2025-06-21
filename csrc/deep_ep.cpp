@@ -1190,12 +1190,14 @@ Buffer::low_latency_combine(const torch::Tensor& x, const torch::Tensor& topk_id
     auto buffer = layout.buffers[low_latency_buffer_idx];
     auto next_buffer = layout.buffers[low_latency_buffer_idx ^= 1];
 
+    // NOTE MODIFIED allow hook+async
     // Wait previous tasks to be finished
     // NOTES: the hook mode will always use the default stream
     auto compute_stream = at::cuda::getCurrentCUDAStream();
-    auto launch_stream = return_recv_hook ? compute_stream : comm_stream;
-    EP_HOST_ASSERT(not (async and return_recv_hook));
-    if (not return_recv_hook)
+    const bool use_single_stream = return_recv_hook and (not async);
+    auto launch_stream = use_single_stream ? compute_stream : comm_stream;
+//    EP_HOST_ASSERT(not (async and return_recv_hook));
+    if (not use_single_stream)
         stream_wait(launch_stream, compute_stream);
 
     // Allocate output tensor
