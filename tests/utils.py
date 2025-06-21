@@ -214,9 +214,10 @@ def extract_detail_times_from_prof(prof, kernel_names, duplicate_name_period: in
 
     ans = {}
     for kernel_name in kernel_names:
-        events = [e for e in profile_data["traceEvents"] if e["name"] == kernel_name]
+        name_matcher = f'::{kernel_name}<'
+        events = [e for e in profile_data["traceEvents"] if name_matcher in e["name"]]
         events = sorted(events, key=lambda e: e["ts"])
-        durations = [e["dur"] for e in events]
+        durations = [e["dur"] / 1e6 for e in events]
         ans[kernel_name] = [list_mean(durations[i::duplicate_name_period]) for i in range(duplicate_name_period)]
     return ans
 
