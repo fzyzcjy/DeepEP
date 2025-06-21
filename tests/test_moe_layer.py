@@ -34,30 +34,17 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
     # noinspection PyShadowingNames
-    def large_gemm():
-        mat_0 = torch.randn((8192, 8192), dtype=torch.float)
-        mat_1 = torch.randn((8192, 8192), dtype=torch.float)
-        mat_0 @ mat_1
-
-    # noinspection PyShadowingNames
     def test_func():
-        hidden_states_fp8, recv_count, handle, dispatch_event, dispatch_hook = \
-            buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
-                                        use_fp8=True, async_finish=False, return_recv_hook=True)
-        assert dispatch_event is None
-        large_gemm()
-        dispatch_hook()
-
-        combined_x, combine_event, combine_hook = buffer.low_latency_combine(
-            simulated_gemm_x, topk_idx, topk_weights, handle,
-            return_recv_hook=True,
-            async_finish=True, # NOTE
-        )
-        combine_event.current_stream_wait()
-        large_gemm()
-        combine_hook()
+        TODO
 
     bench(test_func)
+
+
+# noinspection PyShadowingNames
+def large_gemm():
+    mat_0 = torch.randn((8192, 8192), dtype=torch.float)
+    mat_1 = torch.randn((8192, 8192), dtype=torch.float)
+    mat_0 @ mat_1
 
 
 # noinspection PyUnboundLocalVariable
@@ -85,9 +72,20 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 
 def forward_layer(
+    *,
     w13_weight,
     w2_weight,
+    buffer,
+    topk_idx,
+    topk_weights,
 ):
+    hidden_states_fp8, recv_count, handle, dispatch_event, dispatch_hook = \
+        buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
+                                    use_fp8=True, async_finish=False, return_recv_hook=True)
+    assert dispatch_event is None
+    large_gemm()
+    dispatch_hook()
+
     # GroupGemm-0
     num_groups, m, k = hidden_states_fp8[0].size()
     n = w13_weight.size(1)
@@ -149,7 +147,14 @@ def forward_layer(
         recipe=(1, 128, 128),
     )
 
-    return down_output
+    combined_x, combine_event, combine_hook = buffer.low_latency_combine(
+        down_output, topk_idx, topk_weights, handle,
+        return_recv_hook=True,
+        async_finish=True, # NOTE
+    )
+    combine_event.current_stream_wait()
+    large_gemm()
+    combine_hook()
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
 
