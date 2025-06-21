@@ -73,8 +73,8 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 def forward_layer(
     *,
-    w13_weight,
-    w2_weight,
+    w13_weight_fp8,
+    w2_weight_fp8,
     buffer,
     topk_idx,
     topk_weights,
@@ -133,7 +133,7 @@ def forward_layer(
     del gateup_output
 
     # GroupGemm-1
-    n = w2_weight.size(1)
+    n = w2_weight_fp8[0].size(1)
     down_input_fp8 = (down_input, down_input_scale)
     down_output = torch.empty(
         (num_groups, m, n), device=down_input.device, dtype=torch.bfloat16
