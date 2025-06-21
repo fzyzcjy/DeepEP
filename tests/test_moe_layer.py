@@ -109,9 +109,11 @@ def forward_layer_naive(
     num_tokens,
     num_experts,
 ):
-    down_input, down_input_scale, comm_handle = forward_layer_naive_first_half(
-        hidden_states=hidden_states, w13_weight_fp8=w13_weight_fp8,
-        buffer=buffer, topk_idx=topk_idx, num_tokens=num_tokens, num_experts=num_experts
+    down_input, down_input_scale, comm_handle, expected_m, masked_m, num_groups, m = (
+        forward_layer_naive_first_half(
+            hidden_states=hidden_states, w13_weight_fp8=w13_weight_fp8,
+            buffer=buffer, topk_idx=topk_idx, num_tokens=num_tokens, num_experts=num_experts
+        )
     )
 
     # GroupGemm-1
@@ -139,9 +141,6 @@ def forward_layer_naive(
     combine_hook()
 
     return combined_x
-
-def forward_layer_naive_common_info():
-
 
 def forward_layer_naive_first_half(
         *,
@@ -215,7 +214,7 @@ def forward_layer_naive_first_half(
     )
     del gateup_output
 
-    return down_input, down_input_scale, comm_handle
+    return down_input, down_input_scale, comm_handle, expected_m, masked_m, num_groups, m
 
 def forward_layer_overlap(
         *,
