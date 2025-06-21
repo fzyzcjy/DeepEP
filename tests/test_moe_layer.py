@@ -8,6 +8,7 @@ from functools import partial
 import deep_gemm
 import deep_ep
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
+from sglang.srt.layers.moe.ep_moe.kernels import silu_and_mul_masked_post_quant_fwd
 
 # --------------------------------------------- main -----------------------------------------------------
 
@@ -73,11 +74,14 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 def forward_layer(
     *,
+    x,
     w13_weight_fp8,
     w2_weight_fp8,
     buffer,
     topk_idx,
     topk_weights,
+    num_tokens,
+    num_experts,
 ):
     hidden_states_fp8, recv_count, handle, dispatch_event, dispatch_hook = \
         buffer.low_latency_dispatch(x, topk_idx, num_tokens, num_experts,
@@ -88,7 +92,7 @@ def forward_layer(
 
     # GroupGemm-0
     num_groups, m, k = hidden_states_fp8[0].size()
-    n = w13_weight.size(1)
+    n = w13_weight_fp8[0].size(1)
     expected_m = min(expected_m, m)
     gateup_output = torch.empty(
         (num_groups, m, n), device=hidden_states_fp8[0].device, dtype=torch.bfloat16
