@@ -180,7 +180,7 @@ def forward_layer_naive_first_half(
         use_fp8=True, async_finish=False, return_recv_hook=True,
         round_scale=True, use_ue8m0=True,
     )
-    assert dispatch_event is None
+    assert dispatch_event.event is None
     large_gemm()
     dispatch_hook()
 
