@@ -264,6 +264,24 @@ def forward_layer_overlap(
 
     src_signals = torch.zeros(num_local_experts, dtype=torch.uint32, device=down_input.device)
 
+    for local_expert_idx in range(num_local_experts):
+        print(f'hi call gemm {local_expert_idx=}', flush=True)
+        deep_gemm.fp8_m_grouped_gemm_nt_masked(
+            _pick_expert_fp8(down_input_fp8, local_expert_idx=local_expert_idx),
+            _pick_expert_fp8(w2_weight_fp8, local_expert_idx=local_expert_idx),
+            _pick_expert(down_output, local_expert_idx=local_expert_idx),
+            masked_m[local_expert_idx:local_expert_idx+1],
+            expected_m,
+            recipe=(1, 128, 128),
+        )
+        print(f'hi call notify_src_signals {local_expert_idx=}', flush=True)
+        buffer.runtime.notify_src_signals(
+            src_signals=src_signals,
+            index=local_expert_idx,
+        )
+
+    # TODO wrong order
+    print('hi call low_latency_combine', flush=True)
     combined_x, combine_event, combine_hook = buffer.low_latency_combine(
         down_output, topk_idx, topk_weights, comm_handle,
         return_recv_hook=True,
@@ -271,23 +289,13 @@ def forward_layer_overlap(
         src_signals=src_signals,
     )
 
-    for local_expert_idx in range(num_local_experts):
-        deep_gemm.fp8_m_grouped_gemm_nt_masked(
-            _pick_expert_fp8(down_input_fp8, local_expert_idx=local_expert_idx),
-            _pick_expert_fp8(w2_weight_fp8, local_expert_idx=local_expert_idx),
-            _pick_expert(down_output, local_expert_idx=local_expert_idx),
-            masked_m,
-            expected_m,
-            recipe=(1, 128, 128),
-        )
-        buffer.runtime.notify_src_signals(
-            src_signals=src_signals,
-            index=local_expert_idx,
-        )
-
+    print(f'hi call current_stream_wait', flush=True)
     combine_event.current_stream_wait()
+    print(f'hi call large_gemm', flush=True)
     large_gemm()
+    print(f'hi call combine_hook', flush=True)
     combine_hook()
+    print(f'hi END', flush=True)
 
     return combined_x
 
