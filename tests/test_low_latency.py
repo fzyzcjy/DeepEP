@@ -6,6 +6,8 @@ import torch.distributed as dist
 from functools import partial
 
 import deep_ep
+
+from code.research_mono.research_mono.utils.folders import dir_primary_data
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back, profile_kineto
 
 
@@ -75,7 +77,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                         recv_src_info = recv_src_info[:num_valid_tokens]
                         assert torch.equal(recv_x_amin, recv_x[:, :-128].amax(dim=-1))
                         if round_scale:
-                            assert calc_diff(recv_x[:, -1], recv_src_info.view(-1)) < 0.007
+                            diff = calc_diff(recv_x[:, -1], recv_src_info.view(-1))
+                            assert diff < 0.007, f"{diff=} {dispatch_use_fp8=} {round_scale=} {use_ue8m0=}"
                         else:
                             assert (recv_x[:, -128:] - recv_src_info.view(-1, 1) % num_tokens).sum().item() == 0
                         for j in range(num_ranks):
