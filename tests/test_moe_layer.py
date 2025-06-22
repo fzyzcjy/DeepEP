@@ -65,7 +65,10 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
             num_local_experts=num_local_experts,
         )
 
-    for fn_mode in ['naive', 'overlap']:
+    for fn_mode in [
+        # 'naive', # TODO temp rm
+        'overlap',
+    ]:
         if rank == 0:
             trace_path = str(Path("/data/numa0/tom/temp_sglang_server2local/") / f"{time.time()}-TP-{rank}.trace.json.gz")
         else:
