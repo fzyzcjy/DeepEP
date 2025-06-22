@@ -275,10 +275,7 @@ def forward_layer_overlap(
             recipe=(1, 128, 128),
         )
         print(f'hi call notify_src_signals {local_expert_idx=}', flush=True)
-        buffer.runtime.notify_src_signals(
-            src_signals=src_signals,
-            index=local_expert_idx,
-        )
+        buffer.runtime.notify_src_signals(src_signals, local_expert_idx)
 
     # TODO wrong order
     print('hi call low_latency_combine', flush=True)
