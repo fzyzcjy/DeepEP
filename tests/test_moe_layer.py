@@ -155,8 +155,7 @@ def forward_layer_naive(
         async_finish=True, # NOTE
     )
     combine_event.current_stream_wait()
-    # large_gemm()
-    # NOTE async+hook has wrong behavior and does not wait correctly
+    large_gemm()
     combine_hook()
 
     return combined_x
@@ -282,8 +281,7 @@ def forward_layer_overlap(
         )
 
     combine_event.current_stream_wait()
-    # large_gemm()
-    # NOTE async+hook has wrong behavior and does not wait correctly
+    large_gemm()
     combine_hook()
 
     return combined_x
