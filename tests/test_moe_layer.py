@@ -271,7 +271,7 @@ def forward_layer_overlap(
         deep_gemm.fp8_m_grouped_gemm_nt_masked(
             _pick_expert_fp8(down_input_fp8, local_expert_idx=local_expert_idx),
             _pick_expert_fp8(w2_weight_fp8, local_expert_idx=local_expert_idx),
-            _pick_expert_fp8(down_output, local_expert_idx=local_expert_idx),
+            _pick_expert(down_output, local_expert_idx=local_expert_idx),
             masked_m,
             expected_m,
             recipe=(1, 128, 128),
@@ -290,11 +290,13 @@ def forward_layer_overlap(
 
 
 def _pick_expert_fp8(a, local_expert_idx):
-    return [
-        a[0][local_expert_idx:local_expert_idx + 1, :, :],
-        a[1][local_expert_idx:local_expert_idx + 1, :, :],
-    ]
+    return (
+        _pick_expert(a[0], local_expert_idx),
+        _pick_expert(a[1], local_expert_idx),
+    )
 
+def _pick_expert(a, local_expert_idx):
+    return a[local_expert_idx:local_expert_idx + 1, :, :]
 
 # --------------------------------------------- SGLANG -----------------------------------------------------
 
