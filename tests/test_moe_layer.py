@@ -19,6 +19,7 @@ from sglang.srt.layers.moe.ep_moe.kernels import silu_and_mul_masked_post_quant_
 
 def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
               rank: int, num_ranks: int, group: dist.ProcessGroup, buffer: deep_ep.Buffer, seed: int = 0):
+    print(f"[{rank}] test_main start")
     torch.manual_seed(seed + rank)
     random.seed(seed + rank)
 
@@ -29,6 +30,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     rank_offset = 128
     assert num_ranks - rank_offset < 257, 'Too many ranks (exceeding test precision limit)'
 
+    print(f"[{rank}] test_main prepare data")
     # ref: DeepGEMM - generate_grouped_masked
     x = torch.randn((num_tokens, hidden), device='cuda', dtype=torch.bfloat16)
     scores = torch.randn((num_tokens, num_experts), dtype=torch.float32, device='cuda').abs() + 1
