@@ -456,12 +456,7 @@ combine(void* combined_x,
             // NOTE HACK
 //             auto src_idx = __ldg(local_src_info + token_idx);
             auto src_idx = token_idx - offset;
-            // TODO
-            // TODO
-            // TODO remove
-            // TODO
-            // TODO
-            EP_DEVICE_ASSERT(src_idx < num_max_dispatch_tokens_per_rank);
+//             EP_DEVICE_ASSERT(src_idx < num_max_dispatch_tokens_per_rank); // hack add assert
 
             const auto buf_ptr = reinterpret_cast<int64_t>(rdma_send_x_vec_row);
             const auto dst_ptr = reinterpret_cast<uint64_t>(rdma_recv_x) + (global_expert_idx * num_max_dispatch_tokens_per_rank + src_idx) * num_bytes_per_slot;
