@@ -148,7 +148,7 @@ __device__  __forceinline__ int64_t ld_volatile_global(const uint64_t *ptr) {
 // #define LD_NC_FUNC "ld.volatile.global"
 // #endif
 // NOTE HACK
-#define LD_NC_FUNC "ld.global.nc.L1::no_allocate.L2::evict_first"
+#define LD_NC_FUNC "ld.global.nc.L2::evict_first"
 
 // `ld.global.nc.L1::no_allocate` will be translated into `LDG.E.NA.[width].CONSTANT` in SASS
 template <typename dtype_t>
