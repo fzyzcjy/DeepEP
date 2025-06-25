@@ -148,7 +148,7 @@ __device__  __forceinline__ int64_t ld_volatile_global(const uint64_t *ptr) {
 // #define LD_NC_FUNC "ld.volatile.global"
 // #endif
 // NOTE HACK
-#define LD_NC_FUNC "ld.global.nc.L2::evict_first"
+#define LD_NC_FUNC "ld.global.cs.nc"
 
 // `ld.global.nc.L1::no_allocate` will be translated into `LDG.E.NA.[width].CONSTANT` in SASS
 template <typename dtype_t>
@@ -234,12 +234,14 @@ __device__ __forceinline__ void st_na_release(const uint64_t *ptr, uint64_t val)
     asm volatile("st.release.gpu.global.L1::no_allocate.b64 [%0], %1;" : : "l"(ptr), "l"(val));
 }
 
-// `st.global.L1::no_allocate` will be translated into `ST.E.NA.[width]` in SASS
-#ifndef DISABLE_AGGRESSIVE_PTX_INSTRS
-#define ST_NA_FUNC "st.global.L1::no_allocate"
-#else
-#define ST_NA_FUNC "st.global"
-#endif
+// // `st.global.L1::no_allocate` will be translated into `ST.E.NA.[width]` in SASS
+// #ifndef DISABLE_AGGRESSIVE_PTX_INSTRS
+// #define ST_NA_FUNC "st.global.L1::no_allocate"
+// #else
+// #define ST_NA_FUNC "st.global"
+// #endif
+// HACK
+#define ST_NA_FUNC "st.global.cs"
 
 template <typename dtype_t>
 __device__  __forceinline__ void st_na_global(const dtype_t *ptr, const dtype_t& value) {
