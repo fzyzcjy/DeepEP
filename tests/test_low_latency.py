@@ -1,3 +1,5 @@
+import json
+import os
 import random
 import torch
 import torch.distributed as dist
@@ -30,7 +32,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
     # Check dispatch correctness
-    do_check = True
+    do_check = bool(int(os.environ.get("DEEPEP_HACK_DO_CHECK", "1")))
     hash_value, num_times = 0, 0
     for return_recv_hook in (False, True):
         for dispatch_use_fp8 in (False, True):
@@ -183,5 +185,5 @@ def test_loop(local_rank: int, num_local_ranks: int):
 
 if __name__ == '__main__':
     # TODO: you may modify NUMA binding for less CPU overhead
-    num_processes = 8
+    num_processes = int(os.getenv("DEEPEP_TEST_NUM_PROCESSES", "8"))
     torch.multiprocessing.spawn(test_loop, args=(num_processes,), nprocs=num_processes)
