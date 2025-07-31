@@ -1,8 +1,12 @@
 import argparse
 import random
+import time
+import os
 import torch
 import torch.distributed as dist
+import numpy as np
 from functools import partial
+from typing import Optional
 
 import deep_ep
 from utils import init_dist, bench, bench_kineto, calc_diff, hash_tensor, per_token_cast_back
@@ -161,11 +165,12 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
         print(f'Allocating buffer size: {num_rdma_bytes / 1e6} MB ...', flush=True)
     buffer = deep_ep.Buffer(group, num_rdma_bytes=num_rdma_bytes, low_latency_mode=True,
                             num_qps_per_rank=num_experts // num_ranks,
-                            allow_nvlink_for_low_latency_mode=not args.disable_nvlink, explicitly_destroy=True)
+                            allow_nvlink_for_low_latency_mode=not args.disable_nvlink, explicitly_destroy=True,
+                            allow_mnnvl=args.allow_mnnvl)
     test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer,
               use_logfmt=args.use_logfmt, seed=1)
 
-    do_pressure_test = False
+    do_pressure_test = args.pressure_test
     for seed in range(int(1e9) if do_pressure_test else 0):
         if local_rank == 0:
             print(f'Testing with seed {seed} ...', flush=True)
@@ -195,10 +200,14 @@ if __name__ == '__main__':
                        help='Number of top-k experts (default: 8)')
     parser.add_argument('--num-experts', type=int, default=288,
                        help='Number of experts (default: 288)')
+    parser.add_argument('--allow-mnnvl', action="store_true",
+                        help='Allow MNNVL for communication')
     parser.add_argument('--disable-nvlink', action='store_true',
                         help='Whether to disable NVLink for testing')
     parser.add_argument('--use-logfmt', action='store_true',
                         help='Whether to test LogFMT combine')
+    parser.add_argument("--pressure-test", action='store_true',
+                        help='Whether to do pressure test')
     args = parser.parse_args()
 
     num_processes = args.num_processes
