@@ -826,10 +826,6 @@ combine(void* combined_x,
         __syncwarp();
     }
 
-    if (threadIdx.x % 32 == 0) {
-        printf("[%d] block=%d thread=%d send END\n", rank, (int) blockIdx.x, (int) threadIdx.x);
-    }
-
     // Receiving phase
     LOW_LATENCY_COMBINE_RECV:
     if ((phases & LOW_LATENCY_RECV_PHASE) == 0)
