@@ -826,9 +826,9 @@ combine(void* combined_x,
         __syncwarp();
     }
 
-//     if (threadIdx.x % 32 == 0) {
-//         printf("[%d] block=%d thread=%d send END\n", rank, (int) blockIdx.x, (int) threadIdx.x);
-//     }
+    if (threadIdx.x % 32 == 0) {
+        printf("[%d] block=%d thread=%d send END\n", rank, (int) blockIdx.x, (int) threadIdx.x);
+    }
 
     // Receiving phase
     LOW_LATENCY_COMBINE_RECV:
@@ -1008,9 +1008,7 @@ void combine(void* combined_x,
              void* workspace, int num_device_sms,
              cudaStream_t stream, int phases, bool zero_copy) {
     constexpr int kNumMaxTopk = 9;
-//     const int num_warp_groups = ceil_div(num_experts, num_device_sms);
-    printf("hack!!! num_device_sms:=132\n");
-    const int num_warp_groups = ceil_div(num_experts, 132);
+    const int num_warp_groups = ceil_div(num_experts, num_device_sms);
     const int num_warps_per_group = 32 / num_warp_groups;
     EP_HOST_ASSERT(num_warp_groups > 0 and num_warps_per_group > 0);
 
