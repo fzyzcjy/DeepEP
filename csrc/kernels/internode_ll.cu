@@ -827,7 +827,7 @@ combine(void* combined_x,
     }
 
     if (threadIdx.x % 32 == 0) {
-        printf("[%d] threadIdx=%d combine_send END\n", self.rank, (int) threadIdx.x);
+        printf("[%d] threadIdx=%d combine_send END\n", rank, (int) threadIdx.x);
     }
 
     // Receiving phase
