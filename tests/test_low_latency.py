@@ -47,12 +47,15 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                         num_times += 1
                         for i in range((num_times % 2) + 1):
                             cumulative_local_expert_recv_stats = torch.zeros((num_local_experts, ), dtype=torch.int, device='cuda')
+                            print(f"[{rank}] low_latency_dispatch START")
                             packed_recv_x, packed_recv_count, handle, event, hook = \
                                 buffer.low_latency_dispatch(current_x, topk_idx, num_tokens, num_experts,
                                                             use_fp8=dispatch_use_fp8, round_scale=round_scale, use_ue8m0=use_ue8m0,
                                                             cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
                                                             async_finish=not return_recv_hook, return_recv_hook=return_recv_hook)
+                            print(f"[{rank}] low_latency_dispatch END a")
                             hook() if return_recv_hook else event.current_stream_wait()
+                            print(f"[{rank}] low_latency_dispatch END b")
                         packed_recv_x = (packed_recv_x[0], packed_recv_x[1].contiguous()) if dispatch_use_fp8 else packed_recv_x
                         simulated_gemm_x = per_token_cast_back(packed_recv_x[0].view(-1, hidden), packed_recv_x[1].view(-1, hidden // 128)).view(packed_recv_x[0].shape) \
                             if dispatch_use_fp8 else packed_recv_x.clone()
@@ -96,11 +99,14 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                             if zero_copy:
                                 buffer.get_next_low_latency_combine_buffer(handle)[:, :, :] = simulated_gemm_x
                             out = torch.empty((num_tokens, hidden), dtype=torch.bfloat16, device='cuda')
+                            print(f"[{rank}] low_latency_combine START")
                             combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
                                                                                 use_logfmt=use_logfmt,
                                                                                 async_finish=not return_recv_hook, zero_copy=zero_copy,
                                                                                 return_recv_hook=return_recv_hook, out=out)
+                            print(f"[{rank}] low_latency_combine END a")
                             hook() if return_recv_hook else event.current_stream_wait()
+                            print(f"[{rank}] low_latency_combine END b")
                             if do_check:
                                 diff = calc_diff(current_x * topk_weights.masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1), combined_x)
                                 assert torch.isnan(combined_x).sum().item() == 0
