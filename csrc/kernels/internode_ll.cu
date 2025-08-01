@@ -624,18 +624,15 @@ __forceinline__ __device__ void logfmt_decode_and_accumulate(uint32_t* ld_buffer
     }
 }
 
-__forceinline__ __device__ void print_log(int rank, int stage) {
+__forceinline__ __device__ void print_log(int stage) {
     const auto sm_id = static_cast<int>(blockIdx.x);
     const auto thread_id = static_cast<int>(threadIdx.x);
     const auto warp_id = thread_id / 32;
 
-    const int NBITS_SM = 8;
-    const int NBITS_WARP = 3;
-    const int NBITS_STAGE = 4;
-
     if (thread_id % 32 == 0) {
+        const int NBITS_STAGE = 4;
+        const int NBITS_WARP = 3;
         int64_t num = -(
-             (rank << (NBITS_STAGE + NBITS_WARP + NBITS_SM)) +
              (sm_id << (NBITS_STAGE + NBITS_WARP)) +
              (warp_id << NBITS_STAGE) +
              (stage << 0)
@@ -802,19 +799,19 @@ combine(void* combined_x,
                     }
                 }
 
-                print_log(rank, 0);
+                print_log(0);
                 if constexpr (kUseLogFMT) {
                     send_bytes = tma_offset_bytes;
                     if (elect_one_sync(lane_id))
                         tma_store_1d(meta_buffer, cpy_dst_int4_ptr, kNumMetaBytes);
                 }
 
-                print_log(rank, 1);
+                print_log(1);
                 // Flush all stores
                 tma_store_wait();
                 __syncwarp();
 
-                print_log(rank, 2);
+                print_log(2);
             }
 
             // Issue RDMA
@@ -823,11 +820,11 @@ combine(void* combined_x,
                 nvshmemi_ibgda_put_nbi_warp(dst_ptr, buf_ptr, send_bytes, dst_rank, local_expert_idx, lane_id, token_idx - offset);
         }
 
-        print_log(rank, 3);
+        print_log(3);
         // Put the finishing flag
         EP_DEVICE_ASSERT(num_warps_per_group > 1 and num_warp_groups < 16);
         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
-        print_log(rank, 4);
+        print_log(4);
         if (sub_warp_id == 1 and lane_id == 0) {
             while (ld_acquire_global(atomic_clean_flag) == 0);
             auto dst_ptr = reinterpret_cast<uint64_t>(rdma_recv_flag + global_expert_idx);
@@ -840,10 +837,10 @@ combine(void* combined_x,
             atomic_add_release_global(atomic_clean_flag, -1);
         }
         __syncwarp();
-        print_log(rank, 5);
+        print_log(5);
     }
 
-    print_log(rank, 6);
+    print_log(6);
 
     // Receiving phase
     LOW_LATENCY_COMBINE_RECV:
