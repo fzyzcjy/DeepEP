@@ -782,11 +782,11 @@ combine(void* combined_x,
                     }
                 }
 
-                if constexpr (kUseLogFMT) {
-                    send_bytes = tma_offset_bytes;
-                    if (elect_one_sync(lane_id))
-                        tma_store_1d(meta_buffer, cpy_dst_int4_ptr, kNumMetaBytes);
-                }
+//                 if constexpr (kUseLogFMT) {
+//                     send_bytes = tma_offset_bytes;
+//                     if (elect_one_sync(lane_id))
+//                         tma_store_1d(meta_buffer, cpy_dst_int4_ptr, kNumMetaBytes);
+//                 }
 
                 // Flush all stores
                 tma_store_wait();
