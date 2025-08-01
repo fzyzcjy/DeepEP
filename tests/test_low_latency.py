@@ -36,7 +36,9 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     do_check = True
     hash_value, num_times = 0, 0
     for current_x in (x, x_pure_rand):
-        for return_recv_hook in (False, True):
+        # for return_recv_hook in (False, True):
+        for return_recv_hook in (True,):
+            print(f"hack!!! {return_recv_hook=}")
             for dispatch_use_fp8 in (False, True):
                 for round_scale in (False, True) if dispatch_use_fp8 else (False, ):
                     for use_ue8m0 in (False, True) if round_scale else (False, ):
