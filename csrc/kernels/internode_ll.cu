@@ -90,7 +90,6 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     if ((phases & LOW_LATENCY_SEND_PHASE) == 0)
         goto LOW_LATENCY_DISPATCH_RECV;
 
-if (sm_id < 144) {
     // There are 2 kinds of warps in this part:
     // 1. The first-kind warps for FP8 cast and sending top-k tokens
     // 2. The last warp for reading `topk_idx` and count for per-expert information
@@ -246,10 +245,6 @@ if (sm_id < 144) {
             packed_recv_count[dst_expert_local_idx] = 0;
     }
     __syncwarp();
-}
-
-    // NOTE HACK
-    cg::this_grid().sync();
 
     // Receiving phase
     LOW_LATENCY_DISPATCH_RECV:
@@ -260,7 +255,6 @@ if (sm_id < 144) {
     if (phases & LOW_LATENCY_SEND_PHASE)
         cg::this_grid().sync();
 
-if (sm_id < 144) {
     // Receiving and packing
     if (responsible_expert_idx < num_experts) {
         const auto src_rank = responsible_expert_idx / num_local_experts;
@@ -343,10 +337,6 @@ if (sm_id < 144) {
     }
 }
 
-    // NOTE HACK
-    cg::this_grid().sync();
-}
-
 void dispatch(void* packed_recv_x, void* packed_recv_x_scales,
               int* packed_recv_src_info, int64_t* packed_recv_layout_range,
               int* packed_recv_count,
@@ -367,9 +357,7 @@ void dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     EP_HOST_ASSERT(kNumMaxTopK + 1 <= num_warp_groups * num_warps_per_group);
 
     const auto num_warps = num_warp_groups * num_warps_per_group;
-    // NOTE HACK
-//     const auto num_sms = ceil_div(num_experts, num_warp_groups);
-    const auto num_sms = 152;
+    const auto num_sms = ceil_div(num_experts, num_warp_groups);
     EP_HOST_ASSERT(num_topk <= kNumMaxTopK);
 
     // Workspace checks
