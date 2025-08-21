@@ -94,6 +94,9 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         const int sub_buffer_index = i % 2; // only needed when repeat>1
         const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + sub_buffer_index * num_local_experts;
 
+        // o/w cannot cooperate within a warp
+        EP_DEVICE_ASSERT(num_local_experts < 32);
+
         // send
         {
             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
