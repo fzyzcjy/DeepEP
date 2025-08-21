@@ -91,7 +91,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     // hack
     // NOTE WARN: need change config.hpp at the same time!
 //     for (int i = 0; i < 100; ++ i) {
-    for (int i = 0; i < 1; ++ i) {
+    for (int i = 0; i < 1 /* NEED TO CHANGE config.hpp AT THE SAME TIME */; ++ i) {
         const int expect_value = i + 1;
         const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
 
