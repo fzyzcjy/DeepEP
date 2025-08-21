@@ -283,7 +283,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                         'abnormal_cols'], f"[Diagnose] test failure, slow_rank {slow_rank[i]} not found in abnormal_cols {res['abnormal_cols']}"
                     print(
                         f'[Diagnose] test successful!!! [{name}] slow_rank: {slow_rank[i]} diagnose info: {res}')
-        return hash_value
+
+    return hash_value
 
 
 # noinspection PyUnboundLocalVariable,PyShadowingNames
