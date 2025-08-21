@@ -105,7 +105,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
                 // TODO do not need release/acquire?
-                st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
+//                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
+                *reinterpret_cast<int*>(dst_p2p_ptr) = expect_value;
             }
         }
 
@@ -121,7 +122,9 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             if (responsible_src_rank < num_ranks) {
                 int recv_value = 0;
                 // TODO only need volatile, do not need release/acquire?
-                while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_src_rank)) != expect_value);
+//                 while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_src_rank)) != expect_value);
+                // ref allreduce
+                while ((recv_value = ld_volatile_global(hack_buffer + responsible_src_rank)) != expect_value);
                 EP_DEVICE_ASSERT(recv_value == expect_value);
             }
 
