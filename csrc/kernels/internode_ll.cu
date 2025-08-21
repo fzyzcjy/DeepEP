@@ -106,7 +106,6 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
-                printf("[%d, %d, %d] st i=%d dst_p2p_ptr=%lld\n", rank, sm_id, thread_id, i, dst_p2p_ptr);
                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
             }
         }
