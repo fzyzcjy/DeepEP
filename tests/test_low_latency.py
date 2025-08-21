@@ -44,7 +44,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
     # Check dispatch correctness
-    do_check = True
+    import os
+    do_check = bool(int(os.environ.get("DEEPEP_HACK_DO_CHECK", "1")))
     hash_value, num_times = 0, 0
     for current_x in x_list:
         for return_recv_hook in (False, True):
@@ -148,6 +149,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
           f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
+    output_data = {}
+
     # Separate profiling
     for return_recv_hook in (False, True):
         group.barrier()
@@ -155,11 +158,37 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                                              kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
                                              suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1)
         if not return_recv_hook:
+            data = dict(
+                dispatch_bandwidth=num_dispatch_comm_bytes / 1e9 / dispatch_t,
+                combine_bandwidth=num_combine_comm_bytes / 1e9 / combine_t,
+                dispatch_t_us=dispatch_t * 1e6,
+                combine_t_us=combine_t * 1e6,
+            )
             print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
                   f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
         else:
+            data = dict(
+                dispatch_send_t_us=dispatch_t[0] * 1e6,
+                dispatch_recv_t_us=dispatch_t[1] * 1e6,
+                combine_send_t_us=combine_t[0] * 1e6,
+                combine_recv_t_us=combine_t[1] * 1e6,
+            )
             print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t[0] * 1e6:.2f} + {dispatch_t[1] * 1e6:.2f} us | '
                   f'Combine send/recv time: {combine_t[0] * 1e6:.2f} + {combine_t[1] * 1e6:.2f} us', flush=True)
+
+        output_data |= {("hook_" if return_recv_hook else "std_") + k: v for k, v in data.items()}
+
+    import json
+    print('MAIN_OUTPUT=' + json.dumps(dict(
+        rank=rank,
+        num_tokens=num_tokens,
+        hidden=hidden,
+        num_experts=num_experts,
+        num_topk=num_topk,
+        num_ranks=num_ranks,
+        **output_data,
+    )))
+
     return hash_value
 
 
