@@ -146,66 +146,63 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         mat_0 @ mat_1
         hook()
 
-    for use_nvfp4 in [False, True]:
-        print(f"----- {use_nvfp4}")
+    # noinspection PyShadowingNames
+    def test_func(return_recv_hook: bool):
+        recv_x, recv_count, handle, event, hook = \
+            buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
+                                        cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+                                        # NOTE HACK
+                                        use_nvfp4=use_nvfp4,
+                                        use_fp8=True, async_finish=False, return_recv_hook=return_recv_hook)
+        large_gemm_with_hook(hook) if return_recv_hook else None
+        combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
+                                                             use_logfmt=use_logfmt, return_recv_hook=return_recv_hook)
+        large_gemm_with_hook(hook) if return_recv_hook else None
 
-        # noinspection PyShadowingNames
-        def test_func(return_recv_hook: bool):
-            recv_x, recv_count, handle, event, hook = \
-                buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
-                                            cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
-                                            # NOTE HACK
-                                            use_nvfp4=use_nvfp4,
-                                            use_fp8=True, async_finish=False, return_recv_hook=return_recv_hook)
-            large_gemm_with_hook(hook) if return_recv_hook else None
-            combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                                                 use_logfmt=use_logfmt, return_recv_hook=return_recv_hook)
-            large_gemm_with_hook(hook) if return_recv_hook else None
+    # noinspection PyShadowingNames
+    def test_diagnose(test_dispatch_slow: bool, slow_rank: int,
+                      dispatch_wait_recv_cost_stats: Optional[torch.Tensor] = None,
+                      combine_wait_recv_cost_stats: Optional[torch.Tensor] = None):
+        if test_dispatch_slow:
+            if rank == slow_rank:
+                time.sleep(0.001)
+            buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
+                                        cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+                                        dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
+                                        use_fp8=True, async_finish=False)
+        else:
+            if rank == slow_rank:
+                time.sleep(0.001)
+            buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
+                                       use_logfmt=use_logfmt, return_recv_hook=False,
+                                       combine_wait_recv_cost_stats=combine_wait_recv_cost_stats)
+    # Calculate bandwidth
+    num_fp8_bytes, num_bf16_bytes = (hidden + hidden / 128 * 4 + 16), hidden * 2
+    num_dispatch_comm_bytes, num_combine_comm_bytes = 0, 0
+    for i in range(num_tokens):
+        num_selections = (topk_idx[i] != -1).sum().item()
+        num_dispatch_comm_bytes += num_fp8_bytes * num_selections
+        num_combine_comm_bytes += num_bf16_bytes * num_selections
 
-        # noinspection PyShadowingNames
-        def test_diagnose(test_dispatch_slow: bool, slow_rank: int,
-                          dispatch_wait_recv_cost_stats: Optional[torch.Tensor] = None,
-                          combine_wait_recv_cost_stats: Optional[torch.Tensor] = None):
-            if test_dispatch_slow:
-                if rank == slow_rank:
-                    time.sleep(0.001)
-                buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
-                                            cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
-                                            dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
-                                            use_fp8=True, async_finish=False)
-            else:
-                if rank == slow_rank:
-                    time.sleep(0.001)
-                buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                           use_logfmt=use_logfmt, return_recv_hook=False,
-                                           combine_wait_recv_cost_stats=combine_wait_recv_cost_stats)
-        # Calculate bandwidth
-        num_fp8_bytes, num_bf16_bytes = (hidden + hidden / 128 * 4 + 16), hidden * 2
-        num_dispatch_comm_bytes, num_combine_comm_bytes = 0, 0
-        for i in range(num_tokens):
-            num_selections = (topk_idx[i] != -1).sum().item()
-            num_dispatch_comm_bytes += num_fp8_bytes * num_selections
-            num_combine_comm_bytes += num_bf16_bytes * num_selections
+    # Dispatch + combine testing
+    avg_t, min_t, max_t = bench(partial(test_func, return_recv_hook=False))
+    print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
+          f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
-        # Dispatch + combine testing
-        avg_t, min_t, max_t = bench(partial(test_func, return_recv_hook=False))
-        print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
-              f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
-
-        # Separate profiling
-        for return_recv_hook in (False, True):
-            if not seperate_profile:
-                break
-            group.barrier()
-            dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
-                                                 kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
-                                                 suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1)
-            if not return_recv_hook:
-                print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
-                      f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
-            else:
-                print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t[0] * 1e6:.2f} + {dispatch_t[1] * 1e6:.2f} us | '
-                      f'Combine send/recv time: {combine_t[0] * 1e6:.2f} + {combine_t[1] * 1e6:.2f} us', flush=True)
+    # Separate profiling
+    for return_recv_hook in (False, True):
+        if not seperate_profile:
+            break
+        group.barrier()
+        dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
+                                             kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
+                                             suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1)
+        if not return_recv_hook:
+            print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
+                  f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
+        else:
+            print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t[0] * 1e6:.2f} + {dispatch_t[1] * 1e6:.2f} us | '
+                  f'Combine send/recv time: {combine_t[0] * 1e6:.2f} + {combine_t[1] * 1e6:.2f} us', flush=True)
 
     # Diagnose test
     if enable_diagnose:
