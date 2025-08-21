@@ -146,144 +146,144 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         mat_0 @ mat_1
         hook()
 
-    bench_use_nvfp4 = True
-    print(f"{bench_use_nvfp4=}")
+    for bench_use_nvfp4 in [False, True]:
+        print(f"====== {bench_use_nvfp4=} ======")
 
-    # noinspection PyShadowingNames
-    def test_func(return_recv_hook: bool):
-        recv_x, recv_count, handle, event, hook = \
-            buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
-                                        cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
-                                        # NOTE HACK
-                                        use_nvfp4=bench_use_nvfp4, use_fp8=not bench_use_nvfp4,
-                                        async_finish=False, return_recv_hook=return_recv_hook)
-        large_gemm_with_hook(hook) if return_recv_hook else None
-        combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                                             use_logfmt=use_logfmt, return_recv_hook=return_recv_hook)
-        large_gemm_with_hook(hook) if return_recv_hook else None
+        # noinspection PyShadowingNames
+        def test_func(return_recv_hook: bool):
+            recv_x, recv_count, handle, event, hook = \
+                buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
+                                            cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+                                            # NOTE HACK
+                                            use_nvfp4=bench_use_nvfp4, use_fp8=not bench_use_nvfp4,
+                                            async_finish=False, return_recv_hook=return_recv_hook)
+            large_gemm_with_hook(hook) if return_recv_hook else None
+            combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
+                                                                 use_logfmt=use_logfmt, return_recv_hook=return_recv_hook)
+            large_gemm_with_hook(hook) if return_recv_hook else None
 
-    # noinspection PyShadowingNames
-    def test_diagnose(test_dispatch_slow: bool, slow_rank: int,
-                      dispatch_wait_recv_cost_stats: Optional[torch.Tensor] = None,
-                      combine_wait_recv_cost_stats: Optional[torch.Tensor] = None):
-        if test_dispatch_slow:
-            if rank == slow_rank:
-                time.sleep(0.001)
-            buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
-                                        cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
-                                        dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
-                                        use_fp8=True, async_finish=False)
-        else:
-            if rank == slow_rank:
-                time.sleep(0.001)
-            buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
-                                       use_logfmt=use_logfmt, return_recv_hook=False,
-                                       combine_wait_recv_cost_stats=combine_wait_recv_cost_stats)
-    # Calculate bandwidth
-    num_fp8_bytes, num_bf16_bytes = (hidden + hidden / 128 * 4 + 16), hidden * 2
-    num_dispatch_comm_bytes, num_combine_comm_bytes = 0, 0
-    for i in range(num_tokens):
-        num_selections = (topk_idx[i] != -1).sum().item()
-        num_dispatch_comm_bytes += num_fp8_bytes * num_selections
-        num_combine_comm_bytes += num_bf16_bytes * num_selections
+        # noinspection PyShadowingNames
+        def test_diagnose(test_dispatch_slow: bool, slow_rank: int,
+                          dispatch_wait_recv_cost_stats: Optional[torch.Tensor] = None,
+                          combine_wait_recv_cost_stats: Optional[torch.Tensor] = None):
+            if test_dispatch_slow:
+                if rank == slow_rank:
+                    time.sleep(0.001)
+                buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
+                                            cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+                                            dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
+                                            use_fp8=True, async_finish=False)
+            else:
+                if rank == slow_rank:
+                    time.sleep(0.001)
+                buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
+                                           use_logfmt=use_logfmt, return_recv_hook=False,
+                                           combine_wait_recv_cost_stats=combine_wait_recv_cost_stats)
+        # Calculate bandwidth
+        num_fp8_bytes, num_bf16_bytes = (hidden + hidden / 128 * 4 + 16), hidden * 2
+        num_dispatch_comm_bytes, num_combine_comm_bytes = 0, 0
+        for i in range(num_tokens):
+            num_selections = (topk_idx[i] != -1).sum().item()
+            num_dispatch_comm_bytes += num_fp8_bytes * num_selections
+            num_combine_comm_bytes += num_bf16_bytes * num_selections
 
-    # Dispatch + combine testing
-    avg_t, min_t, max_t = bench(partial(test_func, return_recv_hook=False))
-    print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
-          f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
+        # Dispatch + combine testing
+        avg_t, min_t, max_t = bench(partial(test_func, return_recv_hook=False))
+        print(f'[rank {rank}] Dispatch + combine bandwidth: {(num_dispatch_comm_bytes + num_combine_comm_bytes) / 1e9 / avg_t:.2f} GB/s, '
+              f'avg_t={avg_t * 1e6:.2f} us, min_t={min_t * 1e6:.2f} us, max_t={max_t * 1e6:.2f} us', flush=True)
 
-    # Separate profiling
-    for return_recv_hook in (False, True):
-        if not seperate_profile:
-            break
-        group.barrier()
-        dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
-                                             kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
-                                             suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1)
-        if not return_recv_hook:
-            print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
-                  f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
-        else:
-            print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t[0] * 1e6:.2f} + {dispatch_t[1] * 1e6:.2f} us | '
-                  f'Combine send/recv time: {combine_t[0] * 1e6:.2f} + {combine_t[1] * 1e6:.2f} us', flush=True)
+        # Separate profiling
+        for return_recv_hook in (False, True):
+            if not seperate_profile:
+                break
+            group.barrier()
+            dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
+                                                 kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
+                                                 suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1)
+            if not return_recv_hook:
+                print(f'[rank {rank}] Dispatch bandwidth: {num_dispatch_comm_bytes / 1e9 / dispatch_t:.2f} GB/s, avg_t={dispatch_t * 1e6:.2f} us | '
+                      f'Combine bandwidth: {num_combine_comm_bytes / 1e9 / combine_t:.2f} GB/s, avg_t={combine_t * 1e6:.2f} us', flush=True)
+            else:
+                print(f'[rank {rank}] Dispatch send/recv time: {dispatch_t[0] * 1e6:.2f} + {dispatch_t[1] * 1e6:.2f} us | '
+                      f'Combine send/recv time: {combine_t[0] * 1e6:.2f} + {combine_t[1] * 1e6:.2f} us', flush=True)
 
-    # Diagnose test
-    if enable_diagnose:
-        def diagnose_matrix(
-            mat, thres_col=3.0, thres_row=3.0, thres_point=5.0,
-            suppress_points_in_strong_rowscols=True
-        ):
-            """
-            mat: 2D numpy array, mat[i, j] = the waiting time of src i waiting for dst j to receive the token
-            Returns abnormal columns/rows/points.
-            suppress_points_in_strong_rowscols: whether to remove points located in already detected abnormal rows or columns
-            """
-            # 1. Check for abnormal columns
-            col_means = mat.mean(axis=0)
-            # z_col = (col_means - col_means.mean()) / (col_means.std() + 1e-8)
-            z_col = col_means / (col_means.mean() + 1e-8)
-            abnormal_cols = np.where(z_col > thres_col)[0].tolist()
+        # Diagnose test
+        if enable_diagnose:
+            def diagnose_matrix(
+                mat, thres_col=3.0, thres_row=3.0, thres_point=5.0,
+                suppress_points_in_strong_rowscols=True
+            ):
+                """
+                mat: 2D numpy array, mat[i, j] = the waiting time of src i waiting for dst j to receive the token
+                Returns abnormal columns/rows/points.
+                suppress_points_in_strong_rowscols: whether to remove points located in already detected abnormal rows or columns
+                """
+                # 1. Check for abnormal columns
+                col_means = mat.mean(axis=0)
+                # z_col = (col_means - col_means.mean()) / (col_means.std() + 1e-8)
+                z_col = col_means / (col_means.mean() + 1e-8)
+                abnormal_cols = np.where(z_col > thres_col)[0].tolist()
 
-            # 2. Check for abnormal rows
-            row_means = mat.mean(axis=1)
-            # z_row = (row_means - row_means.mean()) / (row_means.std() + 1e-8)
-            z_row = row_means / (row_means.mean() + 1e-8)
-            abnormal_rows = np.where(z_row > thres_row)[0].tolist()
+                # 2. Check for abnormal rows
+                row_means = mat.mean(axis=1)
+                # z_row = (row_means - row_means.mean()) / (row_means.std() + 1e-8)
+                z_row = row_means / (row_means.mean() + 1e-8)
+                abnormal_rows = np.where(z_row > thres_row)[0].tolist()
 
-            # 3. Check for abnormal single points
-            # z_all = (mat - mat.mean()) / (mat.std() + 1e-8)
-            z_all = mat / (mat.mean() + 1e-8)
-            # Get all positions with z-score > threshold
-            abnormal_points = [
-                (i, j, mat[i, j], z_all[i, j])
-                for i in range(mat.shape[0])
-                for j in range(mat.shape[1])
-                if z_all[i, j] > thres_point
-            ]
-            # Optionally remove points that are in already detected abnormal rows
-            # or columns
-            if suppress_points_in_strong_rowscols:
+                # 3. Check for abnormal single points
+                # z_all = (mat - mat.mean()) / (mat.std() + 1e-8)
+                z_all = mat / (mat.mean() + 1e-8)
+                # Get all positions with z-score > threshold
                 abnormal_points = [
-                    (i, j, v, z) for (i, j, v, z) in abnormal_points
-                    if i not in abnormal_rows and j not in abnormal_cols
+                    (i, j, mat[i, j], z_all[i, j])
+                    for i in range(mat.shape[0])
+                    for j in range(mat.shape[1])
+                    if z_all[i, j] > thres_point
                 ]
-            # 4. Return for automatic processing
-            return {
-                'abnormal_cols': abnormal_cols,
-                'abnormal_rows': abnormal_rows,
-                'abnormal_points': abnormal_points
-            }
+                # Optionally remove points that are in already detected abnormal rows
+                # or columns
+                if suppress_points_in_strong_rowscols:
+                    abnormal_points = [
+                        (i, j, v, z) for (i, j, v, z) in abnormal_points
+                        if i not in abnormal_rows and j not in abnormal_cols
+                    ]
+                # 4. Return for automatic processing
+                return {
+                    'abnormal_cols': abnormal_cols,
+                    'abnormal_rows': abnormal_rows,
+                    'abnormal_points': abnormal_points
+                }
 
-        dispatch_wait_recv_cost_stats = torch.zeros((num_ranks, ), dtype=torch.int64, device='cuda')
-        combine_wait_recv_cost_stats = torch.zeros((num_ranks, ), dtype=torch.int64, device='cuda')
-        slow_rank = [0, 1]
-        for i, test_dispatch_slow in enumerate([True, False]):
-            bench(
-                partial(
-                    test_diagnose,
-                    test_dispatch_slow=test_dispatch_slow,
-                    slow_rank=slow_rank[i],
-                    dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
-                    combine_wait_recv_cost_stats=combine_wait_recv_cost_stats))
-        stats_list = [dispatch_wait_recv_cost_stats, combine_wait_recv_cost_stats]
-        stats_tensor = torch.stack(stats_list, dim=0)   # (N, num_ranks)
-        # gather all ranks dispatch and combine diagnose stats to rank 0
-        gather_tensor = [
-            torch.zeros_like(
-                torch.stack(
-                    stats_list,
-                    dim=0)) for _ in range(
-                group.size())] if rank == 0 else None
-        dist.gather(stats_tensor, gather_list=gather_tensor, group=group, dst=0)
-        if rank == 0:
-            stats_arr = torch.stack([it.cpu() for it in gather_tensor], dim=0).numpy()
-            for i, name in enumerate(["Dispatch", "Combine"]):
-                res = diagnose_matrix(stats_arr[:, i, :])
-                assert slow_rank[i] in res[
-                    'abnormal_cols'], f"[Diagnose] test failure, slow_rank {slow_rank[i]} not found in abnormal_cols {res['abnormal_cols']}"
-                print(
-                    f'[Diagnose] test successful!!! [{name}] slow_rank: {slow_rank[i]} diagnose info: {res}')
-    return hash_value
+            dispatch_wait_recv_cost_stats = torch.zeros((num_ranks, ), dtype=torch.int64, device='cuda')
+            combine_wait_recv_cost_stats = torch.zeros((num_ranks, ), dtype=torch.int64, device='cuda')
+            slow_rank = [0, 1]
+            for i, test_dispatch_slow in enumerate([True, False]):
+                bench(
+                    partial(
+                        test_diagnose,
+                        test_dispatch_slow=test_dispatch_slow,
+                        slow_rank=slow_rank[i],
+                        dispatch_wait_recv_cost_stats=dispatch_wait_recv_cost_stats,
+                        combine_wait_recv_cost_stats=combine_wait_recv_cost_stats))
+            stats_list = [dispatch_wait_recv_cost_stats, combine_wait_recv_cost_stats]
+            stats_tensor = torch.stack(stats_list, dim=0)   # (N, num_ranks)
+            # gather all ranks dispatch and combine diagnose stats to rank 0
+            gather_tensor = [
+                torch.zeros_like(
+                    torch.stack(
+                        stats_list,
+                        dim=0)) for _ in range(
+                    group.size())] if rank == 0 else None
+            dist.gather(stats_tensor, gather_list=gather_tensor, group=group, dst=0)
+            if rank == 0:
+                stats_arr = torch.stack([it.cpu() for it in gather_tensor], dim=0).numpy()
+                for i, name in enumerate(["Dispatch", "Combine"]):
+                    res = diagnose_matrix(stats_arr[:, i, :])
+                    assert slow_rank[i] in res[
+                        'abnormal_cols'], f"[Diagnose] test failure, slow_rank {slow_rank[i]} not found in abnormal_cols {res['abnormal_cols']}"
+                    print(
+                        f'[Diagnose] test successful!!! [{name}] slow_rank: {slow_rank[i]} diagnose info: {res}')
+        return hash_value
 
 
 # noinspection PyUnboundLocalVariable,PyShadowingNames
