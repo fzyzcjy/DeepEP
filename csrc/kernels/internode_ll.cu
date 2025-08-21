@@ -96,8 +96,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
         // TODO should we use 48sm*1thread, or 1sm*48thread?
-        if (sm_id == 0) {
-            const int responsible_dst_rank = thread_id;
+        if (thread_id == 0) {
+            const int responsible_dst_rank = sm_id;
             if (responsible_dst_rank < num_ranks) {
                 auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + rank);
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
