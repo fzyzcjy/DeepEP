@@ -39,15 +39,12 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     for i in range(10):
         topk_idx[random.randint(0, num_tokens - 1), random.randint(0, num_topk - 1)] = -1
 
-    bench_use_nvfp4 = True
-
     # Check dispatch correctness
     do_check = True
     hash_value, num_times = 0, 0
     for current_x in (x, x_pure_rand):
         for return_recv_hook in (False, True):
-            # for dispatch_data_type in ('bf16', 'fp8', 'nvfp4'):
-            for dispatch_data_type in ('nvfp4' if bench_use_nvfp4 else 'fp8'):
+            for dispatch_data_type in ('bf16', 'fp8', 'nvfp4'):
                 dispatch_use_fp8 = dispatch_data_type == 'fp8'
                 dispatch_use_nvfp4 = dispatch_data_type == 'nvfp4'
                 use_ue8m0_for_nvfp4_sf = False
@@ -149,14 +146,17 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
         mat_0 @ mat_1
         hook()
 
+    bench_use_nvfp4 = True
+    print(f"{bench_use_nvfp4=}")
+
     # noinspection PyShadowingNames
     def test_func(return_recv_hook: bool):
         recv_x, recv_count, handle, event, hook = \
             buffer.low_latency_dispatch(x_pure_rand, topk_idx, num_tokens, num_experts,
                                         cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
                                         # NOTE HACK
-                                        use_nvfp4=bench_use_nvfp4,
-                                        use_fp8=True, async_finish=False, return_recv_hook=return_recv_hook)
+                                        use_nvfp4=bench_use_nvfp4, use_fp8=not bench_use_nvfp4,
+                                        async_finish=False, return_recv_hook=return_recv_hook)
         large_gemm_with_hook(hook) if return_recv_hook else None
         combined_x, event, hook = buffer.low_latency_combine(simulated_gemm_x, topk_idx, topk_weights, handle,
                                                              use_logfmt=use_logfmt, return_recv_hook=return_recv_hook)
