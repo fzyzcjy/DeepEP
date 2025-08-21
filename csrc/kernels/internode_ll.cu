@@ -114,14 +114,16 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 //         }
 
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
-        for (int responsible_dst_rank = 0; responsible_dst_rank < num_ranks; ++responsible_dst_rank) {
-            const int responsible_local_expert_idx = thread_id;
-            if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
-                auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + responsible_local_expert_idx);
-                auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
-                EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
+        if (sm_id == 0) {
+            for (int responsible_dst_rank = 0; responsible_dst_rank < num_ranks; ++responsible_dst_rank) {
+                const int responsible_local_expert_idx = thread_id;
+                if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
+                    auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + responsible_local_expert_idx);
+                    auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
+                    EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
-                st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
+                    st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
+                }
             }
         }
 
