@@ -91,6 +91,9 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     // hack
     for (int i = 0; i < 100; ++ i) {
         const int expect_value = i + 1;
+        const int sub_buffer_index = i % 2; // only needed when repeat>1
+        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + sub_buffer_index * num_local_experts;
+
         // send
         {
             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
@@ -99,7 +102,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_local_expert_idx = thread_id;
 
             if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
-                auto dst_ptr = reinterpret_cast<uint64_t>(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx);
+                auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + responsible_local_expert_idx);
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
@@ -116,7 +119,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_local_expert_idx = thread_id;
             if (responsible_local_expert_idx < num_local_experts) {
                 int recv_value = 0;
-                while ((recv_value = ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx)) != expect_value);
+                while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_local_expert_idx)) != expect_value);
                 EP_DEVICE_ASSERT(recv_value == expect_value);
             }
 
