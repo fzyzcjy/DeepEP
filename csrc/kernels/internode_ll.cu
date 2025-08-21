@@ -92,14 +92,12 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     // NOTE WARN: need change config.hpp at the same time!
     for (int i = 0; i < 100; ++ i) {
         const int expect_value = i + 1;
-        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_local_experts;
-
-        // o/w cannot cooperate within a warp
-        EP_DEVICE_ASSERT(num_local_experts < 32);
+        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
 
         // send
 //         {
 //             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
+//             TODO the code is changed!
 //
 //             const int responsible_dst_rank = sm_id;
 //             const int responsible_local_expert_idx = thread_id;
@@ -115,15 +113,13 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
         if (sm_id == 0) {
-            for (int responsible_dst_rank = 0; responsible_dst_rank < num_ranks; ++responsible_dst_rank) {
-                const int responsible_local_expert_idx = thread_id;
-                if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
-                    auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + responsible_local_expert_idx);
-                    auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
-                    EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
+            const int responsible_dst_rank = thread_id;
+            if (responsible_dst_rank < num_ranks) {
+                auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + rank);
+                auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
+                EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
-                    st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
-                }
+                st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
             }
         }
 
@@ -133,10 +129,12 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             // ref https://github.com/deepseek-ai/DeepEP/pull/248/files#diff-d45cebed2d45af8dcf83f289378a4f7c19eac6808dd802646fc9f1c1d3bf5a90R544
             // TODO 0 will be a valid value, thus the sender should swizzle value to send non-zero
 
-            const int responsible_local_expert_idx = thread_id;
-            if (responsible_local_expert_idx < num_local_experts) {
+            // o/w cannot cooperate within a warp
+            EP_DEVICE_ASSERT(num_ranks < blockDim.x);
+            const int responsible_src_rank = thread_id;
+            if (responsible_src_rank < num_ranks) {
                 int recv_value = 0;
-                while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_local_expert_idx)) != expect_value);
+                while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_src_rank)) != expect_value);
                 EP_DEVICE_ASSERT(recv_value == expect_value);
             }
 

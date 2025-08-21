@@ -158,7 +158,8 @@ struct LowLatencyLayout {
         EP_HOST_ASSERT(recv_buffer_bytes % sizeof(int4) == 0);
         total_bytes += recv_buffer_bytes * 2;
 
-        size_t hack_extra_signaling_buffer_bytes = num_experts * 100 * sizeof(int) * 2;
+        // TODO need to sync with internode_ll.cu
+        size_t hack_extra_signaling_buffer_bytes = num_ranks * 100 * sizeof(int) * 2;
 
         // Symmetric signaling buffers
         size_t dispatch_recv_count_buffer_bytes = num_experts * sizeof(int);
