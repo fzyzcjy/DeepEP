@@ -89,7 +89,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         goto LOW_LATENCY_DISPATCH_RECV;
 
     // hack
-    {
+    for (int i = 0; i < 100; ++ i) {
         // send
         {
             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
