@@ -115,7 +115,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_local_expert_idx = thread_id;
             if (responsible_local_expert_idx < num_local_experts) {
                 int recv_value = 0;
-                while ((recv_value = ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_expert_idx)) == 0);
+                while ((recv_value = ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx)) == 0);
                 EP_DEVICE_ASSERT(recv_value == 42);
             }
 
