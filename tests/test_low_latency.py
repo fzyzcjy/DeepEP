@@ -2,6 +2,8 @@ import argparse
 import random
 import time
 import os
+from pathlib import Path
+
 import torch
 import torch.distributed as dist
 import numpy as np
@@ -154,10 +156,12 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     # Separate profiling
     for return_recv_hook in (False, True):
         group.barrier()
+        trace_dir = os.environ.get("DEEPEP_HACK_EXPORT_TRACE", None)
+        trace_path = str(Path(trace_dir) / f"{time.time()}_{rank}.trace.json.gz") if trace_dir is not None else None
         dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
                                              kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
                                              suppress_kineto_output=True, num_kernels_per_period=2 if return_recv_hook else 1,
-                                             trace_path=os.environ.get("DEEPEP_HACK_EXPORT_TRACE", None))
+                                             trace_path=trace_path)
         if not return_recv_hook:
             data = dict(
                 dispatch_bandwidth=num_dispatch_comm_bytes / 1e9 / dispatch_t,
