@@ -104,7 +104,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 
             const int responsible_local_expert_idx = thread_id;
             if (responsible_local_expert_idx < num_experts) {
-                while (ld_acquire_sys_global(TODO + responsible_expert_idx) == 0);
+                while (ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_expert_idx) == 0);
             }
 
             __syncthreads();
