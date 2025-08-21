@@ -99,8 +99,15 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         // recv
         {
             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
+            // ref https://github.com/deepseek-ai/DeepEP/pull/248/files#diff-d45cebed2d45af8dcf83f289378a4f7c19eac6808dd802646fc9f1c1d3bf5a90R544
             // TODO 0 will be a valid value, thus the sender should swizzle value to send non-zero
-            while (ld_acquire_sys_global(TODO_addr)) == 0);
+
+            const int responsible_local_expert_idx = thread_id;
+            if (responsible_local_expert_idx < num_experts) {
+                while (ld_acquire_sys_global(TODO + responsible_expert_idx) == 0);
+            }
+
+            __syncthreads();
         }
     }
 
