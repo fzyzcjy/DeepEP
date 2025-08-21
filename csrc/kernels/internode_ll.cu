@@ -94,24 +94,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         const int expect_value = i + 1;
         const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
 
-        // send
-//         {
-//             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
-//             TODO the code is changed!
-//
-//             const int responsible_dst_rank = sm_id;
-//             const int responsible_local_expert_idx = thread_id;
-//
-//             if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
-//                 auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + responsible_local_expert_idx);
-//                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
-//                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
-//
-//                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
-//             }
-//         }
-
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
+        // TODO should we use 48sm*1thread, or 1sm*48thread?
         if (sm_id == 0) {
             const int responsible_dst_rank = thread_id;
             if (responsible_dst_rank < num_ranks) {
