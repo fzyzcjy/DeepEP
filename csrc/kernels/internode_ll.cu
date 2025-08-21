@@ -90,7 +90,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 
     // hack
     // NOTE WARN: need change config.hpp at the same time!
-    for (int i = 0; i < 100; ++ i) {
+//     for (int i = 0; i < 100; ++ i) {
+    for (int i = 0; i < 1; ++ i) {
         const int expect_value = i + 1;
         const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
 
@@ -103,6 +104,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
+                // TODO do not need release/acquire?
                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
             }
         }
@@ -118,6 +120,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_src_rank = thread_id;
             if (responsible_src_rank < num_ranks) {
                 int recv_value = 0;
+                // TODO only need volatile, do not need release/acquire?
                 while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_src_rank)) != expect_value);
                 EP_DEVICE_ASSERT(recv_value == expect_value);
             }

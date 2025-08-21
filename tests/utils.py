@@ -212,6 +212,7 @@ def bench_kineto(fn, kernel_names: Union[str, tuple], num_tests: int = 30, suppr
             events = [event for event in profile_data['traceEvents'] if f'::{kernel_name}' in event['name']]
             events = sorted(events, key=lambda event: event['ts'])
             durations = [event['dur'] / 1e6 for event in events]
+            print(f"{i=} {kernel_name=} {durations=}")
             assert len(durations) % num_kernels_per_period == 0
             num_kernel_patterns = len(durations) // num_kernels_per_period
             kernel_durations[i] = [sum(durations[j::num_kernels_per_period]) / num_kernel_patterns
