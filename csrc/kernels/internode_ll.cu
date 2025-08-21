@@ -89,10 +89,10 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         goto LOW_LATENCY_DISPATCH_RECV;
 
     // hack
+    // NOTE WARN: need change config.hpp at the same time!
     for (int i = 0; i < 100; ++ i) {
         const int expect_value = i + 1;
-        const int sub_buffer_index = i % 2; // only needed when repeat>1
-        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + sub_buffer_index * num_local_experts;
+        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_local_experts;
 
         // o/w cannot cooperate within a warp
         EP_DEVICE_ASSERT(num_local_experts < 32);
