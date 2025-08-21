@@ -90,6 +90,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
 
     // hack
     for (int i = 0; i < 100; ++ i) {
+        const int expect_value = i + 1;
         // send
         {
             // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
@@ -102,7 +103,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
-                st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), 42);
+                st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
             }
         }
 
@@ -115,8 +116,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_local_expert_idx = thread_id;
             if (responsible_local_expert_idx < num_local_experts) {
                 int recv_value = 0;
-                while ((recv_value = ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx)) == 0);
-                EP_DEVICE_ASSERT(recv_value == 42);
+                while ((recv_value = ld_acquire_sys_global(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx)) != expect_value);
+                EP_DEVICE_ASSERT(recv_value == expect_value);
             }
 
             __syncthreads();
