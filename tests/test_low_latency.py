@@ -17,7 +17,7 @@ MAX_NVFP4 = 6.0
 
 def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
               rank: int, num_ranks: int, group: dist.ProcessGroup, buffer: deep_ep.Buffer,
-              use_logfmt: bool = False, seed: int = 0, enable_diagnose: bool = False, seperate_profile: bool = False):
+              use_logfmt: bool = False, seed: int = 0, enable_diagnose: bool = False):
     torch.manual_seed(seed + rank)
     random.seed(seed + rank)
 
@@ -194,8 +194,6 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
 
         # Separate profiling
         for return_recv_hook in (False, True):
-            if not seperate_profile:
-                break
             group.barrier()
             dispatch_t, combine_t = bench_kineto(partial(test_func, return_recv_hook=return_recv_hook),
                                                  kernel_names=('dispatch', 'combine'), barrier_comm_profiling=True,
@@ -300,7 +298,7 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
                             num_qps_per_rank=num_experts // num_ranks,
                             allow_nvlink_for_low_latency_mode=not args.disable_nvlink, explicitly_destroy=True, allow_mnnvl=args.allow_mnnvl)
     test_main(num_tokens, hidden, num_experts, num_topk, rank, num_ranks, group, buffer,
-              use_logfmt=args.use_logfmt, seed=1, enable_diagnose=args.enable_diagnose, seperate_profile=args.seperate_profile)
+              use_logfmt=args.use_logfmt, seed=1, enable_diagnose=args.enable_diagnose)
 
     do_pressure_test = args.pressure_test
     for seed in range(int(1e9) if do_pressure_test else 0):
@@ -342,8 +340,6 @@ if __name__ == '__main__':
                         help='Whether to enable diagnose for testing')
     parser.add_argument('--allow-mnnvl', action="store_true",
                         help='Allow MNNVL for communication')
-    parser.add_argument('--seperate-profile', action="store_true",
-                        help='Seperate profile for dispatch and combine')
 
     args = parser.parse_args()
 
