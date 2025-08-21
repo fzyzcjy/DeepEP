@@ -92,12 +92,15 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     {
         // send
         {
-            TODO;
+            // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
+            st_release_sys_global(reinterpret_cast<int*>(TODO), 42);
         }
 
         // recv
         {
-            TODO;
+            // ref: allreduce_fusion_kernel_oneshot_lamport, ll dispatch signal
+            // TODO 0 will be a valid value, thus the sender should swizzle value to send non-zero
+            while (ld_acquire_sys_global(TODO_addr)) == 0);
         }
     }
 
