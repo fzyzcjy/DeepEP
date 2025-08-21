@@ -97,7 +97,7 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
         const int4 expect_value_int4 = {expect_value, expect_value, expect_value, expect_value};
 
         // without +i*xxx only support iter=1
-        const int4* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks * NUM_MESSAGES;
+        const int4* hack_buffer = ((int4*)dispatch_hack_extra_signaling_buffer) + i * num_ranks * NUM_MESSAGES;
 
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
         // TODO should we use 48sm*1thread, or 1sm*48thread?
