@@ -98,10 +98,8 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             const int responsible_local_expert_idx = thread_id;
 
             if ((responsible_dst_rank < num_ranks) && (responsible_local_expert_idx < num_local_experts)) {
-                const int dst_rank = responsible_global_expert_idx / num_local_experts;
-                const int responsible_local_expert_idx = responsible_global_expert_idx % num_local_experts;
-                auto dst_ptr = ((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx;
-                auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, dst_rank);
+                auto dst_ptr = reinterpret_cast<uint64_t>(((int*)dispatch_hack_extra_signaling_buffer) + responsible_local_expert_idx);
+                auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), 42);
