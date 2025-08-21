@@ -92,21 +92,27 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
     // NOTE WARN: need change config.hpp at the same time!
 //     for (int i = 0; i < 100; ++ i) {
     for (int i = 0; i < 1 /* NEED TO CHANGE config.hpp AT THE SAME TIME */; ++ i) {
+        constexpr int NUM_MESSAGES = 4;
         const int expect_value = i + 1;
-        const int* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
+        const int4 expect_value_int4 = {expect_value, expect_value, expect_value, expect_value};
+
+        // without +i*xxx only support iter=1
+//         const int4* hack_buffer = ((int*)dispatch_hack_extra_signaling_buffer) + i * num_ranks;
+        const int4* hack_buffer = (int4*)dispatch_hack_extra_signaling_buffer;
 
         // HACK: temp use 1 warp to send everything to check the 100-iter thing
         // TODO should we use 48sm*1thread, or 1sm*48thread?
-        if (thread_id == 0) {
+        {
             const int responsible_dst_rank = sm_id;
-            if (responsible_dst_rank < num_ranks) {
-                auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + rank);
+            const int responsible_message_idx = thread_id;
+            if ((responsible_dst_rank < num_ranks) and (responsible_message_idx < NUM_MESSAGES)) {
+                auto dst_ptr = reinterpret_cast<uint64_t>(hack_buffer + rank * NUM_MESSAGES + responsible_message_idx);
                 auto dst_p2p_ptr = nvshmemi_get_p2p_ptr(dst_ptr, rank, responsible_dst_rank);
                 EP_DEVICE_ASSERT(dst_p2p_ptr != 0);
 
                 // TODO do not need release/acquire?
 //                 st_release_sys_global(reinterpret_cast<int*>(dst_p2p_ptr), expect_value);
-                *reinterpret_cast<int*>(dst_p2p_ptr) = expect_value;
+                *reinterpret_cast<int4*>(dst_p2p_ptr) = expect_value_int4;
             }
         }
 
@@ -117,15 +123,26 @@ dispatch(void* packed_recv_x, void* packed_recv_x_scales,
             // TODO 0 will be a valid value, thus the sender should swizzle value to send non-zero
 
             // o/w cannot cooperate within a warp
-            EP_DEVICE_ASSERT(num_ranks < blockDim.x);
-            const int responsible_src_rank = thread_id;
-            if (responsible_src_rank < num_ranks) {
-                int recv_value = 0;
+//             EP_DEVICE_ASSERT(num_ranks < blockDim.x);
+            EP_DEVICE_ASSERT(num_ranks * NUM_MESSAGES < blockDim.x);
+            const int responsible_src_rank = thread_id / NUM_MESSAGES;
+            const int responsible_message_idx = thread_id % NUM_MESSAGES;
+            if ((responsible_src_rank < num_ranks) and (responsible_message_idx < NUM_MESSAGES)) {
                 // TODO only need volatile, do not need release/acquire?
 //                 while ((recv_value = ld_acquire_sys_global(hack_buffer + responsible_src_rank)) != expect_value);
                 // ref allreduce
-                while ((recv_value = ld_volatile_global(hack_buffer + responsible_src_rank)) != expect_value);
-                EP_DEVICE_ASSERT(recv_value == expect_value);
+                while (true) {
+                    int4 recv_value = ld_volatile_global(hack_buffer + responsible_src_rank * NUM_MESSAGES + responsible_message_idx);
+                    if (
+                        (recv_value.x == expect_value)
+                        && (recv_value.y == expect_value)
+                        && (recv_value.z == expect_value)
+                        && (recv_value.w == expect_value)
+                    ) {
+                        break;
+                    }
+                }
+//                 EP_DEVICE_ASSERT(recv_value == expect_value);
             }
 
             __syncthreads();

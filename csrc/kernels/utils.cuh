@@ -155,6 +155,13 @@ __device__  __forceinline__ int64_t ld_volatile_global(const uint64_t *ptr) {
     return ret;
 }
 
+__device__  __forceinline__ int4 ld_volatile_global(const int4 *ptr) {
+    int4 ret;
+    asm volatile("ld.volatile.global.v4.s32 {%0, %1, %2, %3}, [%4];"
+            : "=r"(ret.x), "=r"(ret.y), "=r"(ret.z), "=r"(ret.w) : "l"(ptr));
+    return ret;
+}
+
 #ifndef DISABLE_AGGRESSIVE_PTX_INSTRS
 #define LD_NC_FUNC "ld.global.nc.L1::no_allocate.L2::256B"
 #else

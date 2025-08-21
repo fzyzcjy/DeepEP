@@ -159,7 +159,8 @@ struct LowLatencyLayout {
         total_bytes += recv_buffer_bytes * 2;
 
         // TODO need to sync with internode_ll.cu
-        size_t hack_extra_signaling_buffer_bytes = num_ranks * 1 * sizeof(int) * 2;
+        const int NUM_MESSAGES = 4;
+        size_t hack_extra_signaling_buffer_bytes = num_ranks * NUM_MESSAGES * 1 /* num_iter */ * sizeof(int4) * 2;
 
         // Symmetric signaling buffers
         size_t dispatch_recv_count_buffer_bytes = num_experts * sizeof(int);
