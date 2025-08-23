@@ -308,7 +308,8 @@ Buffer::intranode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
                            const std::optional<torch::Tensor>& num_tokens_per_rank, const torch::Tensor& is_token_in_rank, const std::optional<torch::Tensor>& num_tokens_per_expert,
                            int cached_num_recv_tokens, const std::optional<torch::Tensor>& cached_rank_prefix_matrix, const std::optional<torch::Tensor>& cached_channel_prefix_matrix,
                            int expert_alignment, int num_worst_tokens, const Config& config,
-                           std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
+                           std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream,
+                           const std::optional<std::function<void()>>& before_intranode_dispatch_fn) {
     bool cached_mode = cached_rank_prefix_matrix.has_value();
 
     // One channel use two blocks, even-numbered blocks for sending, odd-numbered blocks for receiving.
@@ -492,6 +493,13 @@ Buffer::intranode_dispatch(const torch::Tensor& x, const std::optional<torch::Te
         recv_x_scales_ptr = static_cast<float*>(recv_x_scales->data_ptr());
     }
 
+    if (before_intranode_dispatch_fn.has_value()) {
+        auto tmp_stream = at::cuda::getCurrentCUDAStream();
+        at::cuda::setCurrentCUDAStream(comm_stream);
+        before_intranode_dispatch_fn.value()();
+        at::cuda::setCurrentCUDAStream(tmp_stream);
+    }
+
     // Dispatch
     EP_HOST_ASSERT(num_ranks * num_ranks * sizeof(int) +                                                                    // Size prefix matrix
                    num_channels * num_ranks * sizeof(int) +                                                                 // Channel start offset
@@ -543,7 +551,8 @@ std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandl
 Buffer::intranode_combine(const torch::Tensor& x, const std::optional<torch::Tensor>& topk_weights,
                           const std::optional<torch::Tensor>& bias_0, const std::optional<torch::Tensor>& bias_1,
                           const torch::Tensor& src_idx, const torch::Tensor& rank_prefix_matrix, const torch::Tensor& channel_prefix_matrix,
-                          const torch::Tensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
+                          const torch::Tensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream,
+                          const std::optional<std::function<void()>>& before_intranode_combine_fn) {
     EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous());
     EP_HOST_ASSERT(src_idx.dim() == 1 and src_idx.is_contiguous() and src_idx.scalar_type() == torch::kInt32);
     EP_HOST_ASSERT(send_head.dim() == 2 and send_head.is_contiguous() and send_head.scalar_type() == torch::kInt32);
@@ -607,6 +616,13 @@ Buffer::intranode_combine(const torch::Tensor& x, const std::optional<torch::Ten
         EP_HOST_ASSERT(bias.scalar_type() == x.scalar_type());
         EP_HOST_ASSERT(bias.size(0) == num_recv_tokens and bias.size(1) == hidden);
         bias_ptrs[i] = bias.data_ptr();
+    }
+
+    if (before_intranode_combine_fn.has_value()) {
+        auto tmp_stream = at::cuda::getCurrentCUDAStream();
+        at::cuda::setCurrentCUDAStream(comm_stream);
+        before_intranode_combine_fn.value()();
+        at::cuda::setCurrentCUDAStream(tmp_stream);
     }
 
     // Combine data

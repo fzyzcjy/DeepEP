@@ -115,13 +115,15 @@ public:
                        const std::optional<torch::Tensor>& num_tokens_per_rank, const torch::Tensor& is_token_in_rank, const std::optional<torch::Tensor>& num_tokens_per_expert,
                        int cached_num_recv_tokens, const std::optional<torch::Tensor>& cached_rank_prefix_matrix, const std::optional<torch::Tensor>& cached_channel_prefix_matrix,
                        int expert_alignment, int num_worst_tokens, const Config& config,
-                       std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
+                       std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream,
+                       const std::optional<std::function<void()>>& before_intranode_dispatch_fn);
 
     std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<EventHandle>>
     intranode_combine(const torch::Tensor& x, const std::optional<torch::Tensor>& topk_weights,
                       const std::optional<torch::Tensor>& bias_0, const std::optional<torch::Tensor>& bias_1,
                       const torch::Tensor& src_idx, const torch::Tensor& rank_prefix_matrix, const torch::Tensor& channel_prefix_matrix,
-                      const torch::Tensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
+                      const torch::Tensor& send_head, const Config& config, std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream,
+                      const std::optional<std::function<void()>>& before_intranode_combine_fn);
 
     std::tuple<torch::Tensor, std::optional<torch::Tensor>, std::optional<torch::Tensor>, std::optional<torch::Tensor>, std::vector<int>, torch::Tensor, torch::Tensor, std::optional<torch::Tensor>, torch::Tensor, std::optional<torch::Tensor>, torch::Tensor, std::optional<torch::Tensor>, std::optional<torch::Tensor>, std::optional<torch::Tensor>, std::optional<EventHandle>>
     internode_dispatch(const torch::Tensor& x, const std::optional<torch::Tensor>& x_scales,

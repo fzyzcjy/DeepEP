@@ -308,7 +308,8 @@ class Buffer:
                  expert_alignment: int = 1, num_worst_tokens: int = 0,
                  config: Optional[Config] = None,
                  previous_event: Optional[EventOverlap] = None, async_finish: bool = False,
-                 allocate_on_comm_stream: bool = False) -> \
+                 allocate_on_comm_stream: bool = False,
+                 before_intranode_dispatch_fn = None) -> \
             Tuple[Union[Tuple[torch.Tensor, torch.Tensor], torch.Tensor], Optional[torch.Tensor],
                   Optional[torch.Tensor], List[int], Tuple, EventOverlap]:
         """
@@ -369,15 +370,18 @@ class Buffer:
                 x, x_scales, None, None,
                 None, is_token_in_rank, None, num_recv_tokens, rank_prefix_matrix, channel_prefix_matrix,
                 expert_alignment, num_worst_tokens, config,
-                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream)
+                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream,
+                before_intranode_dispatch_fn)
             return (recv_x, recv_x_scales) if x_scales is not None else recv_x, None, None, None, None, EventOverlap(event)
         else:
             assert num_tokens_per_rank is not None and is_token_in_rank is not None and num_tokens_per_expert is not None
+            # print(f"hi {before_intranode_dispatch_fn=}")
             recv_x, recv_x_scales, recv_topk_idx, recv_topk_weights, num_recv_tokens_per_expert_list, rank_prefix_matrix, channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx, send_head, event = \
                 self.runtime.intranode_dispatch(x, x_scales, topk_idx, topk_weights,
                                                 num_tokens_per_rank, is_token_in_rank, num_tokens_per_expert, 0, None, None,
                                                 expert_alignment, num_worst_tokens, config,
-                                                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream)
+                                                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream,
+                                                before_intranode_dispatch_fn)
             handle = (rank_prefix_matrix, channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx, is_token_in_rank, send_head)
             return (recv_x, recv_x_scales) if x_scales is not None else recv_x, recv_topk_idx, recv_topk_weights, num_recv_tokens_per_expert_list, handle, EventOverlap(event)
 
@@ -387,7 +391,8 @@ class Buffer:
                 bias: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]] = None,
                 config: Optional[Config] = None,
                 previous_event: Optional[EventOverlap] = None, async_finish: bool = False,
-                allocate_on_comm_stream: bool = False) -> \
+                allocate_on_comm_stream: bool = False,
+                before_intranode_combine_fn = None) -> \
             Tuple[torch.Tensor, Optional[torch.Tensor], EventOverlap]:
         """
         Combine (reduce) tokens (addition **without** weights) from different ranks, both intranode and internode
@@ -425,7 +430,7 @@ class Buffer:
         recv_x, recv_topk_weights, event = self.runtime.intranode_combine(
             x, topk_weights, bias_0, bias_1,
             src_idx, rank_prefix_matrix, channel_prefix_matrix, send_head, config,
-            getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream)
+            getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream, before_intranode_combine_fn)
         return recv_x, recv_topk_weights, EventOverlap(event)
 
     # noinspection PyTypeChecker
