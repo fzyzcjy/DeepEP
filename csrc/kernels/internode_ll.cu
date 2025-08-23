@@ -929,9 +929,11 @@ void combine(void* combined_x,
              void* workspace, int num_device_sms,
              cudaStream_t stream, int phases, bool zero_copy) {
 
-    if ((phases & LOW_LATENCY_RECV_PHASE) == 0) {
-        num_device_sms = 32;
-    }
+//     if ((phases & LOW_LATENCY_RECV_PHASE) == 0) {
+//         num_device_sms = 32;
+//     }
+    // TODO temp make combine_b also 32 sm, not good
+    num_device_sms = 32;
 
     constexpr int kNumMaxTopk = 9;
     const int num_warp_groups = ceil_div(num_experts, num_device_sms);
