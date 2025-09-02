@@ -1028,6 +1028,11 @@ void combine(void* combined_x,
         num_warps = num_warp_groups * num_warps_per_group;
     }
     else {
+        // TODO unify/refactor the API and impl
+        if (num_sms != -1) {
+            num_device_sms = num_sms;
+        }
+
         num_warp_groups = ceil_div(num_experts, num_device_sms);
         num_warps_per_group = 32 / num_warp_groups;
         num_recv_per_sm = ceil_div(num_combined_tokens, num_device_sms);
