@@ -1029,7 +1029,7 @@ void combine(void* combined_x,
     }
     else {
         // TODO unify/refactor the API and impl
-        if (num_sms != -1) {
+        if ((num_sms != -1) and (phases == LOW_LATENCY_SEND_PHASE)) {
             num_device_sms = num_sms;
         }
 
