@@ -644,8 +644,8 @@ combine(void* combined_x,
         __syncthreads();
     }
 
-    // * flatten (warp_id, sm_id) into flat_id
-    // * reshape into (dimO_size, dimI_size)
+    // (warp_id, sm_id) ----flatten---> flat_id ----reshape----> (dimO_id, dimI_id)
+    // one dimO_id handle one signal, one dimI_id handle one token
     const int num_warps_per_sm = num_warps_per_group * num_warp_groups;
     const int dimI_size = block_m;
     const int dimO_size = num_warps_per_sm * num_sms / dimI_size;
