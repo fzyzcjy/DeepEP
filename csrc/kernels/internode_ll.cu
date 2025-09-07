@@ -655,11 +655,13 @@ combine(void* combined_x,
     const int dimI_id = flat_id % dimI_size;
 
     // Issue IBGDA sends, non-overlap mode only loops once
-    initial_idx = overlap ? sm_id : responsible_expert_idx;
-    loop_bound  = overlap ? shared_vaild_signal_sum : num_experts;
-    step_size   = overlap ? num_sms : num_experts;
-    for (int vaild_signal_idx = initial_idx; vaild_signal_idx < loop_bound; vaild_signal_idx += step_size) {
-
+//     initial_idx = overlap ? sm_id : responsible_expert_idx;
+//     loop_bound  = overlap ? shared_vaild_signal_sum : num_experts;
+//     step_size   = overlap ? num_sms : num_experts;
+//     for (int vaild_signal_idx = initial_idx; vaild_signal_idx < loop_bound; vaild_signal_idx += step_size) {
+    // TODO fix the typo from antgroup (vaild -> valid)
+    // TODO maybe a bit imbalanced
+    for (int vaild_signal_idx = dimO_id; vaild_signal_idx < shared_vaild_signal_sum; vaild_signal_idx += dimO_size) {
         // Find the owning local_expert_idx by scanning the prefix-sum array
         if (overlap) {
             if (sub_warp_id == 0 and lane_id == 0) {
