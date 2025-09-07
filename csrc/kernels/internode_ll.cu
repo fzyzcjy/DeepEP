@@ -619,7 +619,7 @@ combine(void* combined_x,
             atomic_add_release_global(atomic_clean_flag, num_experts);
     }
 
-    EP_DEVICE_ASSERT(overlap, "only support overlap now");
+    EP_DEVICE_ASSERT(overlap); // only support overlap mode now, should unify later
 
     // Shared between warps in sms for overlap mode, where each sm only has one warp group
     __shared__ int shared_vaild_signal_prefix_sum[kNumMaxExperts];
