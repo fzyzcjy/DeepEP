@@ -601,7 +601,7 @@ combine(void* combined_x,
     EP_STATIC_ASSERT(num_bytes_per_slot % sizeof(int4) == 0, "Invalid vectorization");
     
     // Parameters for IBGDA sends outer loop, declared upfront to bypass goto initialization restrictions.
-    int initial_idx, loop_bound, step_size;
+//     int initial_idx, loop_bound, step_size;
     int local_expert_idx = 0;
 
     // ======== only for combine_send, but here again to bypass goto initialization restrictions ========
