@@ -664,15 +664,18 @@ combine(void* combined_x,
     for (int vaild_signal_idx = dimO_id; vaild_signal_idx < shared_vaild_signal_sum; vaild_signal_idx += dimO_size) {
         // Find the owning local_expert_idx by scanning the prefix-sum array
         if (overlap) {
-            if (sub_warp_id == 0 and lane_id == 0) {
-                while (vaild_signal_idx >= shared_vaild_signal_prefix_sum[shared_local_expert_idx])
-                    shared_local_expert_idx++;
-            }
-            __syncthreads();
+//             if (sub_warp_id == 0 and lane_id == 0) {
+//                 while (vaild_signal_idx >= shared_vaild_signal_prefix_sum[shared_local_expert_idx])
+//                     shared_local_expert_idx++;
+//             }
+//             __syncthreads();
+
+            while (vaild_signal_idx >= shared_vaild_signal_prefix_sum[local_expert_idx])
+                local_expert_idx++;
         }
         
         auto dst_rank = responsible_expert_idx / num_local_experts;
-        const auto local_expert_idx = overlap ? shared_local_expert_idx : responsible_expert_idx % num_local_experts;
+//         const auto local_expert_idx = overlap ? shared_local_expert_idx : responsible_expert_idx % num_local_experts;
         const auto global_expert_idx = rank * num_local_experts + local_expert_idx;
         const auto layout = __ldg(layout_range + local_expert_idx * num_ranks + dst_rank);
         const auto local_x = static_cast<const int4*>(x) +
