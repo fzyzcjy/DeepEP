@@ -858,8 +858,8 @@ combine(void* combined_x,
 
             bool put_finish_flag = false;
             if (lane_id == 0) {
-                // NOTE MODIFIED: "* block_m"
-                const auto finish_counter = (num_tokens_per_expert == 0 ? 1 : (ceil_div(num_tokens_per_expert, block_m) * block_m));
+                // NOTE MODIFIED: "x block_m"
+                const auto finish_counter = block_m * (num_tokens_per_expert == 0 ? 1 : ceil_div(num_tokens_per_expert, block_m));
                 if ((atomicAdd(atomic_finish_counter_per_expert + local_expert_idx, 1) + 1) == finish_counter)
                     put_finish_flag = true;
             }
