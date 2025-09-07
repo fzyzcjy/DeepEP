@@ -739,9 +739,11 @@ combine(void* combined_x,
         };
 
         // Issue IBGDA send
-        auto token_start_idx = overlap ? local_expert_signal_idx * block_m : offset;
-        auto token_end_idx = overlap ? min((local_expert_signal_idx + 1) * block_m, num_tokens_per_expert) : (offset + num_tokens_to_send);
-        for (int token_idx = sub_warp_id + token_start_idx; token_idx < token_end_idx; token_idx += num_warps_per_group) {
+//         auto token_start_idx = overlap ? local_expert_signal_idx * block_m : offset;
+//         auto token_end_idx = overlap ? min((local_expert_signal_idx + 1) * block_m, num_tokens_per_expert) : (offset + num_tokens_to_send);
+//         for (int token_idx = sub_warp_id + token_start_idx; token_idx < token_end_idx; token_idx += num_warps_per_group) {
+        const int token_idx = local_expert_signal_idx * block_m + dimI_id;
+        if (token_idx < num_tokens_per_expert) {
             const auto x_int4 = local_x + token_idx * hidden_bf16_int4;
             const auto rdma_send_type_row = reinterpret_cast<int*>(rdma_send_x_vec + token_idx * num_bytes_per_slot);
             const auto rdma_send_x_vec_row = reinterpret_cast<uint8_t*>(rdma_send_type_row);
@@ -816,7 +818,9 @@ combine(void* combined_x,
             if (dst_p2p_ptr == 0)
                 nvshmemi_ibgda_put_nbi_warp(dst_ptr, buf_ptr, num_send_bytes, dst_rank, local_expert_idx, lane_id, token_idx);
         }
-        asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
+        
+        // NOTE remove since each warp work independently now
+//         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
 
         auto send_finish_flag = [&](int dst_rank) {
             while (ld_acquire_global(atomic_clean_flag) == 0);
