@@ -644,12 +644,22 @@ combine(void* combined_x,
         __syncthreads();
     }
 
+    // * flatten (warp_id, sm_id) into flat_id
+    // * reshape into (dimO_size, dimI_size)
+    const int num_warps_per_sm = num_warps_per_group * num_warp_groups;
+    const int dimI_size = block_m;
+    const int dimO_size = num_warps_per_sm * num_sms / dimI_size;
+    EP_DEVICE_ASSERT(dimO_size * dimI_size == num_warps_per_sm * num_sms);
+    const int flat_id = warp_id * num_sms + sm_id;
+    const int dimO_id = flat_id / dimI_size;
+    const int dimI_id = flat_id % dimI_size;
+
     // Issue IBGDA sends, non-overlap mode only loops once
     initial_idx = overlap ? sm_id : responsible_expert_idx;
     loop_bound  = overlap ? shared_vaild_signal_sum : num_experts;
     step_size   = overlap ? num_sms : num_experts;
     for (int vaild_signal_idx = initial_idx; vaild_signal_idx < loop_bound; vaild_signal_idx += step_size) {
-        
+
         // Find the owning local_expert_idx by scanning the prefix-sum array
         if (overlap) {
             if (sub_warp_id == 0 and lane_id == 0) {
