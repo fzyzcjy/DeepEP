@@ -602,6 +602,19 @@ combine(void* combined_x,
     
     // Parameters for IBGDA sends outer loop, declared upfront to bypass goto initialization restrictions.
     int initial_idx, loop_bound, step_size;
+    int local_expert_idx = 0;
+
+    // ======== only for combine_send, but here again to bypass goto initialization restrictions ========
+    // (warp_id, sm_id) ----flatten---> flat_id ----reshape----> (dimO_id, dimI_id)
+    // one dimO_id handle one signal, one dimI_id handle one token
+    const int num_warps_per_sm = num_warps_per_group * num_warp_groups;
+    const int dimI_size = block_m;
+    const int dimO_size = num_warps_per_sm * num_sms / dimI_size;
+    EP_DEVICE_ASSERT(dimO_size * dimI_size == num_warps_per_sm * num_sms);
+    const int flat_id = warp_id * num_sms + sm_id;
+    const int dimO_id = flat_id / dimI_size;
+    const int dimI_id = flat_id % dimI_size;
+    // ================================================================================================
 
     // Sending phase
     if ((phases & LOW_LATENCY_SEND_PHASE) == 0)
@@ -626,7 +639,6 @@ combine(void* combined_x,
     // NOTE MODIFIED
     // __shared__ int shared_vaild_signal_sum, shared_local_expert_idx;
     __shared__ int shared_vaild_signal_sum;
-    int local_expert_idx = 0;
 
     // Compute prefix sums of valid signal counts per local expert
     if (overlap) {
@@ -643,16 +655,6 @@ combine(void* combined_x,
         }
         __syncthreads();
     }
-
-    // (warp_id, sm_id) ----flatten---> flat_id ----reshape----> (dimO_id, dimI_id)
-    // one dimO_id handle one signal, one dimI_id handle one token
-    const int num_warps_per_sm = num_warps_per_group * num_warp_groups;
-    const int dimI_size = block_m;
-    const int dimO_size = num_warps_per_sm * num_sms / dimI_size;
-    EP_DEVICE_ASSERT(dimO_size * dimI_size == num_warps_per_sm * num_sms);
-    const int flat_id = warp_id * num_sms + sm_id;
-    const int dimO_id = flat_id / dimI_size;
-    const int dimI_id = flat_id % dimI_size;
 
     // Issue IBGDA sends, non-overlap mode only loops once
 //     initial_idx = overlap ? sm_id : responsible_expert_idx;
