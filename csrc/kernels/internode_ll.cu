@@ -818,7 +818,7 @@ combine(void* combined_x,
             if (dst_p2p_ptr == 0)
                 nvshmemi_ibgda_put_nbi_warp(dst_ptr, buf_ptr, num_send_bytes, dst_rank, local_expert_idx, lane_id, token_idx);
         }
-        
+
         // NOTE remove since each warp work independently now
 //         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
 
@@ -835,26 +835,44 @@ combine(void* combined_x,
         };
 
         if (overlap) {
-            // Put the finishing flag for overlap mode
-            bool put_finish_flag = false;
-            if (sub_warp_id == 0) {
-                if (lane_id == 0) {
-                    const auto finish_counter = (num_tokens_per_expert == 0 ? 1 : ceil_div(num_tokens_per_expert, block_m));
-                    if ((atomicAdd(atomic_finish_counter_per_expert + local_expert_idx, 1) + 1) == finish_counter)
-                        put_finish_flag = true;
-                }
-                put_finish_flag = __shfl_sync(0xffffffff, put_finish_flag, 0);
-            }
-            __syncthreads();
+//             // Put the finishing flag for overlap mode
+//             bool put_finish_flag = false;
+//             if (sub_warp_id == 0) {
+//                 if (lane_id == 0) {
+//                     const auto finish_counter = (num_tokens_per_expert == 0 ? 1 : ceil_div(num_tokens_per_expert, block_m));
+//                     if ((atomicAdd(atomic_finish_counter_per_expert + local_expert_idx, 1) + 1) == finish_counter)
+//                         put_finish_flag = true;
+//                 }
+//                 put_finish_flag = __shfl_sync(0xffffffff, put_finish_flag, 0);
+//             }
+//             __syncthreads();
+//
+//             if (sub_warp_id == 0 and put_finish_flag) {
+//                 for (int dst_rank = lane_id; dst_rank < num_ranks; dst_rank += 32) {
+//                     send_finish_flag(dst_rank);
+//                 }
+//                 if (lane_id == 0)
+//                     atomic_finish_counter_per_expert[local_expert_idx] = 0;
+//             }
+//             __syncthreads();
 
-            if (sub_warp_id == 0 and put_finish_flag) {
+            bool put_finish_flag = false;
+            if (lane_id == 0) {
+                // NOTE MODIFIED: "* block_m"
+                const auto finish_counter = (num_tokens_per_expert == 0 ? 1 : (ceil_div(num_tokens_per_expert, block_m) * block_m));
+                if ((atomicAdd(atomic_finish_counter_per_expert + local_expert_idx, 1) + 1) == finish_counter)
+                    put_finish_flag = true;
+            }
+            put_finish_flag = __shfl_sync(0xffffffff, put_finish_flag, 0);
+
+            if (put_finish_flag) {
                 for (int dst_rank = lane_id; dst_rank < num_ranks; dst_rank += 32) {
                     send_finish_flag(dst_rank);
                 }
                 if (lane_id == 0)
                     atomic_finish_counter_per_expert[local_expert_idx] = 0;
             }
-            __syncthreads();
+            __syncwarp();
         }
         else {
             // Put the finishing flag for non-overlap mode
