@@ -164,7 +164,7 @@ void combine(void* combined_x,
              int num_topk, int num_experts, int rank, int num_ranks,
              bool use_logfmt,
              void* workspace, int num_device_sms, int num_sms,
-             cudaStream_t stream, int phases, bool zero_copy);
+             cudaStream_t stream, int phases, bool zero_copy, int hack_override_num_signal_per_expert);
 
 } // namespace internode_ll
 

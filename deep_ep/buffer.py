@@ -599,7 +599,7 @@ class Buffer:
                             block_m: int = 64, threshold: int = 0, num_sms: int = -1,
                             use_logfmt: bool = False, zero_copy: bool = False, async_finish: bool = False,
                             return_recv_hook: bool = False, out: Optional[torch.Tensor] = None,
-                            combine_wait_recv_cost_stats: Optional[torch.Tensor] = None) -> \
+                            combine_wait_recv_cost_stats: Optional[torch.Tensor] = None, hack_override_num_signal_per_expert: int = -1) -> \
             Tuple[torch.Tensor, EventOverlap, Callable]:
         """
         A low-latency implementation for combining tokens (reduce **with weights**) with IBGDA.
@@ -651,7 +651,7 @@ class Buffer:
                                                                    combine_wait_recv_cost_stats,
                                                                    num_max_dispatch_tokens_per_rank, num_experts,
                                                                    use_logfmt, zero_copy, async_finish, return_recv_hook,
-                                                                   out)
+                                                                   out, hack_override_num_signal_per_expert)
         tensors_to_record = (x, topk_idx, topk_weights, src_info, layout_range, combined_x)
         return combined_x, EventOverlap(event, tensors_to_record if async_finish else None), hook
 

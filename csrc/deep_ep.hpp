@@ -188,7 +188,7 @@ public:
                         const std::optional<torch::Tensor>& combine_wait_recv_cost_stats,
                         int num_max_dispatch_tokens_per_rank, int num_experts,
                         bool use_logfmt, bool zero_copy, bool async, bool return_recv_hook,
-                        const std::optional<torch::Tensor>& out = std::nullopt);
+                        const std::optional<torch::Tensor>& out = std::nullopt, int hack_override_num_signal_per_expert = -1);
 
     torch::Tensor
     get_next_low_latency_combine_buffer(int num_max_dispatch_tokens_per_rank, int hidden, int num_experts) const;

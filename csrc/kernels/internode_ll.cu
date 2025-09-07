@@ -567,7 +567,7 @@ combine(void* combined_x,
         int num_max_dispatch_tokens_per_rank,
         int num_experts, int rank, int num_ranks,
         int num_warp_groups, int num_warps_per_group,
-        int phases, bool zero_copy) {
+        int phases, bool zero_copy, int hack_override_num_signal_per_expert) {
     const auto sm_id = __shfl_sync(0xffffffff, static_cast<int>(blockIdx.x), 0);
     const auto num_sms = __shfl_sync(0xffffffff, static_cast<int>(gridDim.x), 0);
     const auto thread_id = static_cast<int>(threadIdx.x);
@@ -672,8 +672,12 @@ combine(void* combined_x,
         const int* gemm_comp_signal;
         if (overlap) {
             num_tokens_per_expert = packed_recv_count[local_expert_idx];
-            num_signal_per_expert = ceil_div(num_ranks * num_max_dispatch_tokens_per_rank, block_m);
-            local_expert_signal_idx = (local_expert_idx == 0) ? vaild_signal_idx : 
+            if (hack_override_num_signal_per_expert != -1) {
+                num_signal_per_expert = hack_override_num_signal_per_expert;
+            } else{
+                num_signal_per_expert = ceil_div(num_ranks * num_max_dispatch_tokens_per_rank, block_m);
+            }
+            local_expert_signal_idx = (local_expert_idx == 0) ? vaild_signal_idx :
                                       vaild_signal_idx - shared_vaild_signal_prefix_sum[local_expert_idx-1];
             gemm_comp_signal = comp_signal + num_signal_per_expert * local_expert_idx + local_expert_signal_idx;
         
@@ -1013,7 +1017,7 @@ void combine(void* combined_x,
              int num_topk, int num_experts, int rank, int num_ranks,
              bool use_logfmt,
              void* workspace, int num_device_sms, int num_sms,
-             cudaStream_t stream, int phases, bool zero_copy) {
+             cudaStream_t stream, int phases, bool zero_copy, int hack_override_num_signal_per_expert) {
     constexpr int kNumMaxTopk = 9;
     constexpr int kNumMaxExperts = 288;
     int num_warp_groups, num_warps_per_group, num_recv_per_sm, num_warps;
@@ -1085,7 +1089,7 @@ LAUNCH_KERNEL(&cfg, combine_func, \
               num_max_dispatch_tokens_per_rank, \
               num_experts, rank, num_ranks, \
               num_warp_groups, num_warps_per_group, \
-              phases, zero_copy); } break
+              phases, zero_copy, hack_override_num_signal_per_expert); } break
 
     SETUP_LAUNCH_CONFIG(num_sms, num_warps * 32, stream);
     SWITCH_HIDDEN(COMBINE_LAUNCH_CASE);
