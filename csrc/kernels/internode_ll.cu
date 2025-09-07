@@ -619,15 +619,21 @@ combine(void* combined_x,
             atomic_add_release_global(atomic_clean_flag, num_experts);
     }
 
+    EP_DEVICE_ASSERT(overlap, "only support overlap now");
+
     // Shared between warps in sms for overlap mode, where each sm only has one warp group
     __shared__ int shared_vaild_signal_prefix_sum[kNumMaxExperts];
-    __shared__ int shared_vaild_signal_sum, shared_local_expert_idx;
+    // NOTE MODIFIED
+    // __shared__ int shared_vaild_signal_sum, shared_local_expert_idx;
+    __shared__ int shared_vaild_signal_sum;
+    int local_expert_idx = 0;
 
     // Compute prefix sums of valid signal counts per local expert
     if (overlap) {
         if (sub_warp_id == 0 and lane_id == 0) {
             shared_vaild_signal_prefix_sum[0] = (packed_recv_count[0] == 0 ? 1 : ceil_div(packed_recv_count[0], block_m));
-            shared_local_expert_idx = 0;
+            // NOTE MODIFIED
+            // shared_local_expert_idx = 0;
             #pragma unroll
             for (int i = 1; i < num_local_experts; i++) {
                 shared_vaild_signal_prefix_sum[i] = shared_vaild_signal_prefix_sum[i-1] + 
