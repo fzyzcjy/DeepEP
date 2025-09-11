@@ -1304,12 +1304,10 @@ Buffer::low_latency_dispatch(const torch::Tensor& x, const torch::Tensor& topk_i
         auto rk = (hidden + (kNumPerChannels * NUM_SF_ELEMS_PER_PACK) -1 ) / (kNumPerChannels * NUM_SF_ELEMS_PER_PACK);
         // The physical layout is (l, rm, rk, 32, 4, 4).
         if (use_ue8m0_for_sf) {
-            // NOTE HACK use zeros instead of empty
-            packed_recv_x_scales = torch::zeros({l, rm, rk, 32, 4, 4},
+            packed_recv_x_scales = torch::empty({l, rm, rk, 32, 4, 4},
                                                 torch::dtype(torch::kInt).device(torch::kCUDA));
         } else {
-            // NOTE HACK use zeros instead of empty
-            packed_recv_x_scales = torch::zeros({l, rm, rk, 32, 4, 4},
+            packed_recv_x_scales = torch::empty({l, rm, rk, 32, 4, 4},
                                                 torch::dtype(torch::kFloat8_e4m3fn).device(torch::kCUDA));
         }
         // After permute, the logical shape is (32, 4, rm, 4, rk, l)
