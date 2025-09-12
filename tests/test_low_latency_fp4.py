@@ -86,7 +86,8 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
     # the reference is got by dispatching with bf16 data format
     # and then quantizing the output of dispatch with nvfp4 data format
     #############################################################
-    if args.CUDA_ARCH >= 100:
+    # if args.CUDA_ARCH >= 100:
+    if 1:
         if rank == 0:
             print(f'Compare nvfp4 dispatch output with grouped quantize output')
         mask = recv_count
@@ -126,6 +127,7 @@ def test_main(num_tokens: int, hidden: int, num_experts: int, num_topk: int,
                 recv_x_scales_ref_per_token = recv_x_scales_ref[local_expert, ref_token_idx]
                 recv_x_scales_test_per_token = recv_x_scales_test[local_expert, test_token_idx]
                 assert torch.equal(recv_x_scales_ref_per_token, recv_x_scales_test_per_token), f'rank {rank}, recv_x_scales_ref_per_token: {recv_x_scales_ref_per_token}, recv_x_scales_test_per_token: {recv_x_scales_test_per_token}'
+                # print(f"{recv_x_scales_test_per_token=}")
     
     
     #############################################################
