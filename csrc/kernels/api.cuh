@@ -1,3 +1,4 @@
+// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #pragma once
 
 #include <vector>
@@ -16,7 +17,7 @@ namespace internode {
 
 std::vector<uint8_t> get_unique_id();
 
-int init(const std::vector<uint8_t> &root_unique_id_val, int rank, int num_ranks, bool low_latency_mode);
+int init(const std::vector<uint8_t> &root_unique_id_val, int rank, int num_ranks, bool low_latency_mode,bool disable_nvlink_for_normal_mode);
 
 void *alloc(size_t size, size_t alignment);
 
@@ -53,11 +54,11 @@ void cached_notify_dispatch(const int* rank_prefix_matrix, int num_memset_int,
                             void** buffer_ptrs, int** barrier_signal_ptrs, int rank, int num_ranks,
                             cudaStream_t stream);
 
-void dispatch(void* recv_x, float* recv_x_scales, int* recv_src_idx, int64_t* recv_topk_idx, float* recv_topk_weights, int* recv_channel_offset,
-              int* send_head, const void* x, const float* x_scales, const int64_t* topk_idx, const float* topk_weights,
+void dispatch(void* recv_x, float* recv_x_scales, float* recv_x_sf_scale_for_nvfp4, int* recv_src_idx, int64_t* recv_topk_idx, float* recv_topk_weights, int* recv_channel_offset,
+              int* send_head, const void* x, const float* x_scales, const float* sf_scale_for_nvfp4, const int64_t* topk_idx, const float* topk_weights,
               const bool* is_token_in_rank, const int* channel_prefix_matrix,
-              int num_tokens, int num_worst_tokens, int hidden_int4, int num_topk, int num_experts, int num_scales,
-              int scale_token_stride, int scale_hidden_stride,
+              int num_tokens, int num_worst_tokens, int hidden_int4, int num_topk, int num_experts, int num_scales, int num_sf_scales_for_nvfp4,
+              int scale_token_stride, int scale_hidden_stride, int sf_scale_for_nvfp4_token_stride, int sf_scale_for_nvfp4_hidden_stride,
               void** buffer_ptrs, int rank, int num_ranks,
               cudaStream_t stream, int num_sms,
               int num_max_send_tokens, int num_recv_buffer_tokens);
@@ -169,5 +170,49 @@ void combine(void* combined_x,
              bool overlap, uint32_t* src_signals, uint32_t src_signal_expect_value);
 
 } // namespace internode_ll
+
+
+// Internode kernels
+namespace pcie {
+
+void cached_notify_pcie(int hidden_int4, int num_scales, int num_topk_idx, int num_topk_weights,
+                   int num_ranks, int num_channels, int num_combined_tokens, int* combined_rdma_head,
+                   void* rdma_buffer_ptr, int num_max_rdma_chunked_recv_tokens,
+                   int rank, cudaStream_t stream,
+                   int64_t num_rdma_bytes,
+                   bool is_cached_dispatch);
+
+void notify_dispatch_pcie(const int* num_tokens_per_rank, int* moe_recv_counter_mapped, int num_ranks,
+                     const int* num_tokens_per_expert, int* moe_recv_expert_counter_mapped, int num_experts,
+                     const bool* is_token_in_rank, int num_tokens, int num_channels,
+                     int hidden_int4, int num_scales, int num_topk, int expert_alignment,
+                     int* rdma_channel_prefix_matrix, int* recv_rdma_rank_prefix_sum,
+                     void* rdma_buffer_ptr, int num_max_rdma_chunked_recv_tokens,int rank,
+                     cudaStream_t stream, int64_t num_rdma_bytes);
+
+void dispatch_pcie(void* recv_x, float* recv_x_scales, int64_t* recv_topk_idx, float* recv_topk_weights, 
+                   const void* x, const float* x_scales, const int64_t* topk_idx, const float* topk_weights,
+                   const int* rdma_channel_prefix_matrix,
+                   const int* recv_rdma_rank_prefix_sum,
+                   int* recv_rdma_channel_prefix_matrix, int* send_rdma_head,
+                   const bool* is_token_in_rank,
+                   int num_tokens, int hidden_int4, int num_scales, int num_topk, int num_experts,int num_local_experts,
+                   int scale_token_stride, int scale_hidden_stride,
+		           void* rdma_buffer_ptr, int num_max_rdma_chunked_send_tokens, int num_max_rdma_chunked_recv_tokens,
+                   void** buffer_ptrs, int rank, int num_ranks,bool is_cached_dispatch,
+                   cudaStream_t stream, int num_channels);
+
+void combine_pcie(cudaDataType_t type,
+                  void* combined_x, float* combined_topk_weights,
+                  const void* recv_x, const float* recv_topk_weights,
+                  const void* bias_0, const void* bias_1,
+                  const int* combined_rdma_head,
+                  const int* recv_gbl_channel_prefix_matrix, const int* recv_rank_prefix_sum,
+                  int num_recv_tokens, int num_combined_tokens, int hidden, int num_topk,
+                  void* rdma_buffer_ptr, int num_max_rdma_chunked_send_tokens, int num_max_rdma_chunked_recv_tokens,
+                  int rank, int num_ranks, cudaStream_t stream, int num_channels);
+
+} // namespace pcie
+
 
 } // namespace deep_ep

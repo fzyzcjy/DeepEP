@@ -1,3 +1,4 @@
+// Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #pragma once
 
 #include "kernels/api.cuh"
@@ -11,8 +12,13 @@ dtype_t ceil_div(dtype_t a, dtype_t b) {
 }
 
 template <typename dtype_t>
-dtype_t align(dtype_t a, dtype_t b) {
+dtype_t align_up(dtype_t a, dtype_t b) {
     return ceil_div<dtype_t>(a, b) * b;
+}
+
+template <typename dtype_t>
+dtype_t align_down(dtype_t a, dtype_t b) {
+    return a / b * b;
 }
 
 struct Config {
@@ -36,7 +42,7 @@ struct Config {
         EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens > 0 and num_max_rdma_chunked_recv_tokens > 0);
 
         // Ceil up RDMA buffer size
-        this->num_max_rdma_chunked_recv_tokens = align<int>(num_max_rdma_chunked_recv_tokens, num_max_rdma_chunked_send_tokens);
+        this->num_max_rdma_chunked_recv_tokens = align_up<int>(num_max_rdma_chunked_recv_tokens, num_max_rdma_chunked_send_tokens);
         EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens < num_max_rdma_chunked_recv_tokens);
         // NOTES: this assertion is related to RDMA lazy head update, we must ensure senders always have space to push
         EP_HOST_ASSERT(num_max_rdma_chunked_send_tokens <= num_max_rdma_chunked_recv_tokens / 2);
@@ -95,6 +101,31 @@ struct Config {
         EP_HOST_ASSERT(false and "NVSHMEM is disable during compilation");
 #endif
     }
+
+    size_t get_pcie_buffer_size_hint(int64_t hidden_bytes, int num_ranks) const {
+#ifndef DISABLE_NVSHMEM
+        // Below are some assumptions
+        // TODO: add assertions
+        constexpr int kNumMaxTopK = 128;
+        constexpr int kNumMaxScales = 128;
+        EP_HOST_ASSERT(num_sms % 2 == 0);
+        const int num_channels = num_sms / 2;
+
+        size_t num_bytes = 0;
+        num_bytes += num_channels * num_ranks * 2 * 2 * sizeof(int);//used for rdma_channel_meta
+        num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * hidden_bytes * 2;
+        // num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * pcie::get_source_meta_bytes() * 2;
+        num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(int64_t) * 2;
+        num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxTopK * sizeof(float) * 2;
+        num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * kNumMaxScales * sizeof(float) * 2;
+        num_bytes += num_channels * num_ranks * num_max_rdma_chunked_recv_tokens * sizeof(int4) * 2;
+        num_bytes = ((num_bytes + 127) / 128) * 128;
+        return num_bytes;
+#else
+        EP_HOST_ASSERT(false and "NVSHMEM is disable during compilation");
+#endif
+    }
+
 };
 
 struct LowLatencyBuffer {
@@ -160,7 +191,7 @@ struct LowLatencyLayout {
         size_t dispatch_recv_count_buffer_bytes = num_experts * sizeof(int);
         size_t combine_recv_flag_buffer_bytes = dispatch_recv_count_buffer_bytes;
         size_t signaling_buffer_bytes = std::max(dispatch_recv_count_buffer_bytes, combine_recv_flag_buffer_bytes);
-        size_t signaling_buffer_bytes_aligned = align<size_t>(signaling_buffer_bytes, 128);
+        size_t signaling_buffer_bytes_aligned = align_up<size_t>(signaling_buffer_bytes, 128);
         total_bytes += signaling_buffer_bytes_aligned * 2;
 
         // Assign pointers
