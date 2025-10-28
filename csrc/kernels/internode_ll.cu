@@ -769,13 +769,11 @@ __forceinline__ __device__ void decode_and_accumulate(uint32_t* ld_buffer, float
     }
 }
 
-// TODO unify with original code
 template <bool kUseLogFMT, int kHidden, int kNumMaxTopk, int kNumMaxUnrolls>
 __global__
 __launch_bounds__(1024, 1)
-// __maxnreg__(48) // rm
 void
-combine_v2(void* combined_x,
+combine_overlappable(void* combined_x,
         void* rdma_recv_x, int* rdma_recv_flag, void* rdma_send_x,
         const void* x, const int64_t* topk_idx, const float* topk_weights,
         const int* src_info, const int64_t* layout_range,
@@ -838,7 +836,6 @@ combine_v2(void* combined_x,
 
     // Issue IBGDA sends
     if (responsible_expert_idx < num_experts) {
-        // NOTE move tma-related to outside local_expert_idx loop
         // ------------------------------------------ START tma-related -------------------------------------------------
         // TMA stuffs
         constexpr int kNumTMABufferBytes = sizeof(int4) * 32 * kNumSendUnrolls;
@@ -897,12 +894,10 @@ combine_v2(void* combined_x,
             // NOTE added
             if (src_signals != nullptr) {
                 // TODO shall we let 1st expert be separately computed and then do *not* wait for it
-                // if ((threadIdx.x == 0) and (local_expert_idx > 0)) {
                 if (threadIdx.x == 0) {
                     wait_signal(src_signals + local_expert_idx, src_signal_expect_value);
                 }
 
-                // TODO original code uses NamedBarrier, better than this?
                 __syncthreads();
             }
 
@@ -991,7 +986,6 @@ combine_v2(void* combined_x,
             }
         }
 
-        // TODO maybe move to above?
         // Put the finishing flag
         EP_DEVICE_ASSERT(num_warps_per_group > 1 and num_warp_groups < 16);
         asm volatile("bar.sync %0, %1;" :: "r"(warp_group_id + 1), "r"(num_warps_per_group * 32));
@@ -1031,7 +1025,6 @@ combine_v2(void* combined_x,
             }
         }
     }
-//     if (thread_id % 32 == 0) { printf("[R%d,S%d,T%d] combine phase=send END\n", rank, sm_id, thread_id); }
 
     // Receiving phase
     LOW_LATENCY_COMBINE_RECV:
@@ -1188,11 +1181,9 @@ combine_v2(void* combined_x,
         // Flush all stores
         tma_store_wait<0>();
     }
-
-//     if (thread_id % 32 == 0) { printf("[R%d,S%d,T%d] combine phase=recv END\n", rank, sm_id, thread_id); }
 }
 
-void combine_v2(void* combined_x,
+void combine_overlappable(void* combined_x,
              void* rdma_recv_x, int* rdma_recv_flag, void* rdma_send_x,
              const void* x, const int64_t* topk_idx, const float* topk_weights,
              const int* src_info, const int64_t* layout_range,
@@ -1245,8 +1236,8 @@ void combine_v2(void* combined_x,
 
 #define COMBINE_LAUNCH_CASE(hidden) { \
 auto combine_func = use_logfmt ? \
-    combine_v2<true, hidden, kNumMaxTopk, kNumMaxUnrolls> : \
-    combine_v2<false, hidden, kNumMaxTopk, kNumMaxUnrolls>; \
+    combine_overlappable<true, hidden, kNumMaxTopk, kNumMaxUnrolls> : \
+    combine_overlappable<false, hidden, kNumMaxTopk, kNumMaxUnrolls>; \
 SET_SHARED_MEMORY_FOR_TMA(combine_func); \
 LAUNCH_KERNEL(&cfg, combine_func, \
               combined_x, \
@@ -1641,7 +1632,7 @@ void combine(void* combined_x,
              cudaStream_t stream, int phases, bool zero_copy,
              bool overlap, uint32_t* src_signals, uint32_t src_signal_expect_value) {
     if (overlap) {
-        return combine_v2(
+        return combine_overlappable(
             combined_x,
             rdma_recv_x, rdma_recv_flag, rdma_send_x,
             x, topk_idx, topk_weights,
